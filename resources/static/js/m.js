@@ -248,7 +248,7 @@ const uploadStream = (session_id, file, onProgress = null) => {
   return request.post(`/upload_task/stream/${session_id}`, file, {
     onUploadProgress: (progressEvent) => {
       if (onProgress != null) {
-        onProgress(progressEvent.loaded, progressEvent.total);
+        onProgress(progressEvent);
       }
     },
   });
@@ -259,7 +259,7 @@ const uploadChunk = (session_id, chunk_cur, file, onProgress = null) => {
   return request.post(`/upload_task/chunk/${session_id}/${chunk_cur}`, file, {
     onUploadProgress: (progressEvent) => {
       if (onProgress != null) {
-        onProgress(progressEvent.loaded, progressEvent.total);
+        onProgress(progressEvent);
       }
     },
   });

@@ -171,6 +171,7 @@
                                             </div>
                                             <div>
                                                 <span class="text-xs" x-text="`${renderSize(t.size)}`"></span>
+                                                <span class="text-xs ml-1" x-text="`${renderSize(t.uploadSpeed)}/S`"></span>
                                                 <span class="text-xs ml-1" x-text="`${t.process}%`"></span>
                                                 <span class="text-xs ml-1" x-text="t.status"></span>
                                                 <span class="text-xs ml-1 text-red-500" x-text="t.message"></span>
@@ -577,6 +578,10 @@
             this.process = 0;
             this.vpath = null;
 
+            this.startTime = null;
+            this.uploadBytes = 0;
+            this.uploadSpeed = 0;
+
             this.statusObj = {
                 UPLOADING: "UPLOADING",
                 SUCCESS: "SUCCESS",
@@ -701,8 +706,10 @@
                 let chunk_data = this_.file.slice(start, end);
                 this_.reader.readAsArrayBuffer(chunk_data);
                 this_.reader.onload = function () {
-                    uploadChunk(this_.session_id, chunk_cur, this.result, (loaded, total) => {
-                        this_.setProcess(this_.uploaded + loaded)
+                    uploadChunk(this_.session_id, chunk_cur, this.result, (processEvent) => {
+                        this_.uploadBytes += processEvent.loaded;
+                        this_.calculateSpeed();
+                        this_.setProcess(this_.uploaded + processEvent.loaded)
                     }).then(res => {
                         let resData = res.data.data;
                         this_.status = resData.status;
@@ -732,9 +739,13 @@
             let reader = new FileReader();
             this_.reader.readAsArrayBuffer(this.file);
             this_.reader.onload = function () {
-
-                uploadStream(this_.session_id, this.result, (loaded, total) => {
-                    this_.setProcess(loaded);
+                this_.startTime = Date.now();
+                console.log(this_.startTime)
+                uploadStream(this_.session_id, this.result, (progressEvent) => {
+                    let p = parseInt(progressEvent.progress * 100);
+                    if (p > this_.process) this_.process = p;
+                    this_.uploadBytes = progressEvent.loaded;
+                    this_.calculateSpeed();
                 }).then(res => {
                     if (res.data.data != null) {
                         let resData = res.data.data;
@@ -752,6 +763,16 @@
 
                     if (cb != null) cb(err);
                 })
+            }
+        }
+
+        calculateSpeed() {
+            if (this.startTime == null) {
+                this.startTime = Date.now();
+            } else {
+                let nowTime = Date.now();
+                let subTime = (nowTime - this.startTime) / 1000;
+                this.uploadSpeed = this.uploadBytes / subTime;
             }
         }
 
