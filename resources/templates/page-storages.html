@@ -83,7 +83,7 @@
             delStorage() {
                 if (this.selectId) {
                     storageDelete(this.selectId).then(res => {
-                        Message.success({ message: res.data.message, duration: 2 });
+                        $vh.success(res.data.message);
                         for (let s of this.storages) {
                             if (s.id == this.selectId) {
                                 let index = this.storages.indexOf(s);
