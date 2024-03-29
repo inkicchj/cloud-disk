@@ -4,7 +4,7 @@
 {% block main %}
 
 <div class="p-2">
-    <div class="bg-base-100 " x-data="authData">
+    <div class="bg-base-100 " x-data="authDatas">
         <div class="border p-5 rounded-sm overflow-y-scroll" style="height: calc(100vh - 90px);">
             <div><span>基本信息</span></div>
             <label class="form-control w-full max-w-xl">
@@ -59,7 +59,7 @@
 
     document.addEventListener("alpine:init", () => {
 
-        Alpine.data("authData", () => ({
+        Alpine.data("authDatas", () => ({
             loading01: false,
             loading02: false,
             name: null,
@@ -82,7 +82,9 @@
             updatePwd() {
                 this.loading02 = true
                 authUpdatePwd(this.old_pwd, this.new_pwd).then(res => {
-                    $vh.success(res.data.message)
+                    $vh.success("更改用户密码成功");
+                    Cookies.set("token", token);
+                    Cookies.set("csrf", csrf);
                     this.loading02 = false;
                 }).catch(_ => {
                     this.loading02 = false;

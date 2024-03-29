@@ -68,9 +68,11 @@
                 this.loading = true;
                 authLogin(this.name, this.password).then(res => { 
                     this.loading = false;
-                   
+                    let token = res.data.data.token;
+                    let csrf = res.data.data.csrf;
+                    Cookies.set("token", token);
+                    Cookies.set("csrf", csrf);
                     window.location = "/";
-                    
                 }).catch(err => {
                     this.loading = false
                 })

@@ -87,9 +87,7 @@ app.static("/static", "resources/static", name="uploads")
 # 挂载vfs
 @app.before_server_start
 async def setup_vfs(app_: Sanic):
-    from passlib import pwd
     from src.model.storage import Storage
-    print(pwd.genword(length=8))
     storages = await Storage.filter(activated=True).all()
     for s in storages:
         os.chmod(s.root_path, stat.S_IRWXG)

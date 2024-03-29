@@ -29,7 +29,7 @@ async def login(request: Request, body: LoginSchema):
     del user["password"]
     csrf = shortuuid.random(30)
     token = await Auth.create_access_token(identity=user["id"], role=user["role"], csrf=csrf)
-    response = json(Resp.ok_data({"token": token}))
+    response = json(Resp.ok_data({"token": token, "csrf": csrf}))
     response.add_cookie(key="token", value=token, httponly=True)
     response.add_cookie(key="csrf", value=csrf, httponly=False)
     return response
@@ -85,7 +85,7 @@ async def update_pwd(request: Request, body: UpdatePWDSchema, token: Token):
     await token.revoke()
     csrf = shortuuid.random(30)
     new_token = await Auth.create_access_token(identity=token.identity, role=token.role, csrf=csrf)
-    response = json(Resp.ok_msg("更改密码成功"))
+    response = json(Resp.ok_data({"token": token, "csrf": csrf}))
     response.add_cookie(key="token", value=new_token, httponly=True)
     response.add_cookie(key="csrf", value=csrf, httponly=False)
     return response
