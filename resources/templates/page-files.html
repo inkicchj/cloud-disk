@@ -706,8 +706,9 @@
                 let chunk_data = this_.file.slice(start, end);
                 this_.reader.readAsArrayBuffer(chunk_data);
                 this_.reader.onload = function () {
+                    let ub = this_.uploadBytes;
                     uploadChunk(this_.session_id, chunk_cur, this.result, (processEvent) => {
-                        this_.uploadBytes += processEvent.loaded;
+                        this_.uploadBytes = ub + processEvent.loaded
                         this_.calculateSpeed();
                         this_.setProcess(this_.uploaded + processEvent.loaded)
                     }).then(res => {
