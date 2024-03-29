@@ -1,0 +1,111 @@
+{% extends "ui/layout.html" %}
+
+{% block head %}
+<script src="/static/plugins/plyr/plyr.js"></script>
+<link rel="stylesheet" href="/static/plugins/plyr/plyr.css" />
+{% endblock %}
+
+{% block main %}
+
+<div class="p-2" x-data="audioData">
+    <div>
+        <button class="btn rounded-sm">音频预览</button>
+        <a class="btn rounded-sm btn-neutral" :href="path">下载</a>
+        <button class="btn text-sm btn-ghost rounded-sm text-sky-700" x-text="curFile.name"></button>
+    </div>
+    <div class="border w-full mt-3 grid grid-cols-12" style="height: calc(100vh - 150px);">
+        <div class="col-span-10 flex flex-col justify-center relative">
+            <div class="absolute top-0 left-0 w-full h-full" style="z-index: -1;">
+                <img class="w-full h-full object-cover" src="/static/img/bg.jpg">
+            </div>
+            <audio id="player" controls></audio>
+        </div>
+        <div class="col-span-2 h-full w-full border-l overflow-y-scroll">
+            <template x-for="(f, idx) in fileList" :key="idx">
+                <div class="border" :class="{'bg-neutral text-neutral-content': curFile.name == f.name}" @click="play(f)">
+                    <div class="pl-1 pr-1 pb-1 ">
+                        <span class="text-xs text-break cursor-default" x-text="f.name"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block js %}
+<script>
+    document.addEventListener("alpine:init", () => {
+        Alpine.data("audioData", () => ({
+            path: null,
+            prefix: '/api/fs/source?path=',
+            tPrefix: '/api/fs',
+            curFile: {},
+            fileList: [],
+            loading: false,
+            player: null,
+            url: new URL(window.location.href),
+            init() {
+                let p = this.url.searchParams.get("p");
+                if (p) {
+                    fsDetail(p).then(res => {
+                        let file = res.data.data;
+                        this.curFile = file;
+                        fsList(file.parent_dir, 1).then(res1 => {
+                            let data = res1.data.data.data;
+                            for (let f of data) {
+                                if (!f.is_dir && f.file_type == file.file_type) {
+                                    this.fileList.push(f)
+                                }
+                            }
+
+                        })
+                        this.$nextTick(() => {
+                            this.player = new Plyr('#player', {
+                                controls: [
+                                    'play-large',
+                                    'restart',
+                                    'rewind',
+                                    'play',
+                                    'fast-forward',
+                                    'progress',
+                                    'current-time',
+                                    'duration',
+                                    'mute',
+                                    'volume',
+                                    'captions',
+                                    'settings',
+                                    'download',
+                                    'fullscreen',
+                                ],
+                            })
+                            this.play(file)
+                        })
+
+                    })
+
+                }
+
+            },
+            play(f) {
+
+                this.curFile = f;
+                this.path = this.prefix + f.raw_path;
+
+                this.player.source = {
+                    type: "audio",
+                    title: this.curFile.name,
+                    sources: [{ src: this.path, type: f.file_type, size: f.size }],
+                }
+                this.player.download = this.path;
+                this.player.autoplay = window.config.preview.auto_play_audio;
+
+                this.url.searchParams.set("p", f.raw_path);
+                window.history.replaceState(null, null, this.url.href);
+            }
+        }))
+    })
+</script>
+
+{% endblock %}

@@ -1,0 +1,173 @@
+{% extends "ui/layout.html" %}
+
+
+{% block main %}
+
+<div class="bg-base-100 p-2" x-data="shareData">
+    <div class="border">
+        <div class="grid grid-cols-12 p-2 text-sm font-bold" style="height: 40px;">
+            <div class="col-span-7">路径标识</div>
+            <div class="col-span-1">密码</div>
+            <div class="col-span-1">类型</div>
+            <div class="col-span-2">过期时间</div>
+            <div class="col-span-1"></div>
+        </div>
+        <div class="bg-base-100 overflow-y-scroll" style="height: calc(100vh - 132px);">
+    
+            <dialog :id="dialogId" class="modal">
+                <div class="modal-box">
+                    <h3 class="font-bold text-lg">删除分享链接</h3>
+                    <p class="py-4" x-text="`你确定要删除该分享链接吗?`"></p>
+                    <div class="modal-action">
+                        <template x-if="loading"><span class="loading loading-spinner"></span></template>
+                        <button class="btn btn-error btn-sm text-white" @click="deleteShare">删除</button>
+                        <button class="btn btn-sm" @click="closeDialog">取消</button>
+                    </div>
+                </div>
+            </dialog>
+    
+            <template x-for="(s, idx) in shares.data" :key="s.id">
+                <div class="grid grid-cols-12 p-2 text-sm hover:bg-base-200 border-b">
+                    <div class="col-span-7 flex items-center">
+                        <div>
+                            <div>
+                                <a class="link link-hover" x-text="s.path" @click="goFile(s.path, s.is_dir)"></a>
+                            </div>
+                            <div>
+                                <a class="link text-green-500 link-hover text-xs" x-text="s.mark" :href="'/share/'+s.mark"
+                                    target="_blank"></a>
+                            </div>
+    
+    
+                        </div>
+    
+                    </div>
+                    <div class="col-span-1 flex items-center">
+                        <a x-text="s.password?s.password:'-'"></a>
+                    </div>
+                    <div class="col-span-1 flex items-center">
+                        <a class="text-xs text-slate-500" x-text="s.is_dir?'文件夹':'文件'"></a>
+                    </div>
+    
+                    <div class="col-span-2 flex items-center">
+                        <a class="text-xs text-slate-500" x-text="parseExpired(s.expired)"></a>
+                    </div>
+                    <div class="col-span-1 flex items-center">
+                        <a class="link text-blue-500 link-hover" :href="'/share/'+s.mark" target="_blank">访问</a>
+                        <a class="link text-red-500 ml-4 link-hover" @click="openDialog(s.id)">删除</a>
+                    </div>
+                </div>
+            </template>
+            <template x-if="shares.data.length == 0">
+                <div class="p-2">
+                    <div role="alert" class="alert">
+                        <span class="text-sm">还没有创建分享链接~</span>
+                    </div>
+                </div>
+            </template>
+            <template x-if="shares.pages.length > 1">
+                <div class="join mt-5 ml-2 mb-10">
+                    <template x-for="(p, idx) in shares.pages" :key="p">
+                        <button class="join-item btn btn-sm btn-outline" x-text="p" :class="{'btn-active': p==shares.page}"
+                            @click="goPage(p)"></button>
+                    </template>
+                </div>
+            </template>
+        </div>
+    
+    </div>
+
+
+</div>
+
+{% endblock %}
+
+{% block js %}
+
+<script src="/static/js/url.min.js"></script>
+<script src="/static/js/moment.js"></script>
+<script>
+
+
+    function parseExpired(t) {
+        if (t > 0) {
+            let now = moment().unix();
+            if (parseInt(t) >= now) {
+                return moment.unix(t).format("YYYY-MM-DD HH:mm:SS");
+            } else {
+                return '已过期';
+            }
+        } else {
+            return '永久';
+        }
+    }
+
+    document.addEventListener("alpine:init", () => {
+
+        Alpine.data("shareData", () => ({
+            shares: {
+                page: 1,
+                page_size: null,
+                pages: [],
+                total: null,
+                total_page: null,
+                data: []
+            },
+            loading: false,
+            delLoading: false,
+            dialogId: "fs_remove",
+            selectId: null,
+            init() {
+                this.getShareList();
+            },
+            getShareList() {
+                this.loading = true;
+                let p = this.shares.page ? this.shares.page : 1;
+                shareList(p).then(res => {
+                    this.shares = res.data.data;
+                    this.loading = false;
+                })
+            },
+            goFile(path, is_dir) {
+                if (is_dir) {
+                    let pl = path.split("/")
+                    let pathList = ['/', ...pl.slice(1, pl.length)];
+                    localStorage.setItem('pathList', JSON.stringify(pathList));
+                    window.location.href = "/";
+                }
+            },
+            openDialog(id) {
+                this.selectId = id;
+                document.getElementById(this.dialogId).showModal();
+            },
+            closeDialog() {
+                this.selectId = null;
+                document.getElementById(this.dialogId).close();
+            },
+            deleteShare() {
+                this.delLoading = true;
+                if (this.selectId) {
+                    shareDelete(parseInt(this.selectId)).then(res => {
+                        this.delLoading = false;
+                        for (let s of this.shares.data) {
+                            if (s.id == this.selectId) {
+                                let index = this.shares.data.indexOf(s);
+                                this.shares.data.splice(index, 1);
+                            }
+                        }
+                        this.closeDialog();
+
+                    })
+                }
+            },
+            goPage(p) {
+                this.shares.page = parseInt(p);
+                this.getShareList();
+            }
+        }))
+
+    })
+
+</script>
+
+{% endblock %}

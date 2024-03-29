@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" />
+    <meta name="renderer" content="webkit" />
+
+    <link href="/static/css/daisyui.full.min.css" rel="stylesheet" type="text/css" />
+    <script src="/static/js/tailwindcss.3.4.1.js"></script>
+    <!-- <script src="/static/js/axios.min.js"></script> -->
+    <link rel="stylesheet" href="/static/css/bootstrap-icons.min.css">
+
+    <script defer src="/static/js/alpine.js"></script>
+
+
+    <style>
+        .text-break {
+            word-wrap: break-word;
+            word-break: break-all;
+        }
+    </style>
+
+
+    <!-- 如果使用了组件的 icon 属性，还需要引入图标的 CSS 文件 -->
+    {% block head %}{% endblock %}
+    <title>{{ request.ctx.config.website.title }}</title>
+
+
+</head>
+
+<body>
+    <div class="h-screen">
+        <div class="grid grid-cols-1 border-b" style="height: 70px;">
+            <div class="navbar bg-neutral text-neutral-content">
+                <div class="flex-1">
+                    <a class="btn btn-ghost text-xl" href="/">{{ request.ctx.config.website.title }}</a>
+                </div>
+                <div class="flex-none" x-data="authData">
+                    <details class="dropdown dropdown-end">
+                        <summary class="btn btn-sm btn-ghost"><a class="link link-hover text-orange-600"
+                                x-text="name"></a></summary>
+                        <ul class="p-2 shadow menu dropdown-content z-[1] bg-base-100 rounded-box w-28">
+                            <li><a class="text-sm text-red-500" @click="logout">退出登录</a></li>
+                        </ul>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-8" style="height: calc(100vh - 70px);">
+            <div class="col-span-1 border-r">
+                <ul class="menu">
+                    <li><a class="text-base {% if request.path == '/' %}active{% endif %}" href="/">
+                            <i class="bi bi-folder"></i>
+                            我的文件</a></li>
+                    <li><a class="text-base {% if request.path == '/m/storage' %}active{% endif %}" href="/m/storage"><i
+                                class="bi bi-database"></i>存储空间</a></li>
+                    <li><a class="text-base {% if request.path == '/m/share' %}active{% endif %}" href="/m/share"><i
+                                class="bi bi-share"></i>分享链接</a></li>
+                    <li><a class="text-base {% if request.path == '/m/auth' %}active{% endif %}" href="/m/auth">
+                            <i class="bi bi-person"></i></i>账户</a></li>
+                    <li><a class="text-base {% if request.path == '/m/setting' %}active{% endif %}" href="/m/setting">
+                            <i class="bi bi-gear"></i>设置</a></li>
+                </ul>
+            </div>
+            <div class="col-span-7">
+                {% block main %}{% endblock %}
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/vh.toast.min.js"></script>
+    <script src="/static/js/tools.js"></script>
+    <script src="/static/js/cookie.js"></script>
+    <script src="/static/js/axios.js"></script>
+    <script src="/static/js/request.js"></script>
+    <script src="/static/js/m.js"></script>
+    <script>
+        window.config = {
+            website: {
+                version: "{{ request.ctx.config.website.version }}",
+                title: "{{ request.ctx.config.website.title }}",
+                name: "{{ request.ctx.config.website.name }}",
+                notice: "{{ request.ctx.config.website.notice }}",
+                icon: "{{ request.ctx.config.website.icon }}"
+            },
+            preview: {
+                office: "{{ request.ctx.config.preview.office }}",
+                text: "{{ request.ctx.config.preview.text }}",
+                image: "{{ request.ctx.config.preview.image }}",
+                audio: "{{ request.ctx.config.preview.audio }}",
+                video: "{{ request.ctx.config.preview.video }}",
+                auto_play_audio: {% if request.ctx.config.preview.auto_play_audio %}true{% else %}false{% endif %},
+                auto_play_video: {% if request.ctx.config.preview.auto_play_video %}true{% else %}false{% endif %},
+                thumbnail: {% if request.ctx.config.preview.thumbnail %}true{% else %}false{% endif %}
+            },
+            fs: {
+                pagination_mode: {{ request.ctx.config.fs.pagination_mode }},
+                pagination_size: {{ request.ctx.config.fs.pagination_size }},
+                max_upload_size: {{ request.ctx.config.fs.max_upload_size }},
+                max_download_size: {{ request.ctx.config.fs.max_download_size }},
+                max_parallel: {{ request.ctx.config.fs.max_parallel }},
+                chunk_size: {{ request.ctx.config.fs.chunk_size }},
+                skip_files: "{{ request.ctx.config.fs.skip_files }}"
+            }
+        }
+
+    </script>
+
+    <script>
+        document.addEventListener("alpine:init", () => {
+            Alpine.data("authData", () => ({
+                name: "",
+                init() {
+                    authMe().then(res => {
+                        this.name = res.data.data.name;
+                    })
+                },
+                logout() {
+                    authLogout().then(res => {
+                        window.location.href = "/login"
+                    })
+                }
+            }))
+        })
+    </script>
+    {% block js %}{% endblock %}
+
+</body>
+
+</html>

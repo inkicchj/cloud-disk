@@ -1,0 +1,191 @@
+{% extends "ui/layout.html" %}
+
+{% block head %}
+<script src="/static/plugins/office/jszip.min.js"></script>
+<script src="/static/plugins/office/docx-preview.js"></script>
+<script src="/static/plugins/office/xlsx.full.min.js"></script>
+
+
+{% endblock %}
+
+
+{% block main %}
+<div class="p-2" x-data="officeData">
+    <div>
+        <button class="btn rounded-sm">文档预览</button>
+        <a class="btn rounded-sm btn-neutral" :href="path">下载</a>
+        <button class="btn text-sm btn-ghost rounded-sm text-sky-700" x-text="curFile.name"></button>
+    </div>
+    <div class="border w-full mt-3 grid grid-cols-12" style="height: calc(100vh - 150px);">
+        <div class="col-span-10 p-2 relative">
+            <template x-if="getOfficeType() == office.DOCX">
+                <div class="w-full h-full overflow-y-scroll" style="height: calc(100vh - 160px);">
+                    <div id="container"></div>
+                </div>
+            </template>
+            <template x-if="getOfficeType() == office.PDF">
+                <div class="w-full h-full" style="height: calc(100vh - 160px);">
+                    <iframe class="w-full h-full" :src="pdfViewerSrc"></iframe>
+                </div>
+            </template>
+            <template x-if="getOfficeType() == office.PPTX">
+                <div class="w-full h-full" style="height: calc(100vh - 160px);">
+                    <iframe class="w-full h-full" :src="pptxViewerSrc"></iframe>
+                </div>
+
+            </template>
+            <template x-if="getOfficeType() == office.XLSX">
+                <div class="w-full h-full" style="height: calc(100vh - 160px);">
+                    <div class="join rounded-sm" style="height: 40px;">
+                        <template x-for="(name, idx) in tableSheetNames" :key="idx">
+                            <a class="btn btn-sm join-item btn-outline" x-text="name"
+                                :class="{'btn-active': name == curSheetName}" @click="xlsxChangeSheet(name)"></a>
+                        </template>
+                    </div>
+                    <div class="overflow-scroll" style="height: calc(100vh - 200px);">
+                        <table class="table table-pin-rows table-pin-cols table-sm ">
+                            <tbody>
+                                <template x-for="(row, idx) in tableDataList" :key="idx">
+                                    <tr class="hover">
+                                        <template x-for="(val, idx1) in row" :key="`${idx}${idx1}`">
+                                            <td class="min-w-36 border" x-text="val"></td>
+                                        </template>
+                                    </tr>
+                                </template>
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </template>
+        </div>
+        <div class="col-span-2 h-full w-full border-l overflow-y-scroll">
+            <template x-for="(f, idx) in fileList" :key="idx">
+                <div class="border" :class="{'bg-neutral text-neutral-content': curFile.name == f.name}"
+                    @click="showOffice(f)">
+                    <div class="pl-1 pr-1 pb-1 ">
+                        <span class="text-xs text-break cursor-default" x-text="f.name"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+
+{% block js %}
+
+
+<script>
+    document.addEventListener("alpine:init", () => {
+        Alpine.data("officeData", () => ({
+            path: null,
+            prefix: '/api/fs/source?path=',
+            pdfViewerSrc: '',
+            pptxViewerSrc: '',
+            curFile: {},
+            fileList: [],
+            loading: false,
+            workbook: null,
+            curSheetName: null,
+            tableDataList: [],
+            tableSheetNames: [],
+            office: {
+                DOCX: "docx",
+                PDF: "pdf",
+                PPTX: "pptx",
+                XLSX: "xlsx"
+            },
+            url: new URL(window.location.href),
+            init() {
+                let p = this.url.searchParams.get("p");
+
+                fsDetail(p).then(res => {
+                    let file = res.data.data;
+                    this.curFile = file;
+                    fsList(file.parent_dir, 1).then(res1 => {
+                        let data = res1.data.data.data;
+                        for (let f of data) {
+                            if (!f.is_dir && f.file_type == file.file_type) {
+                                this.fileList.push(f)
+                            }
+                        }
+
+                    })
+                    this.showOffice(file);
+                })
+            },
+            getOfficeType() {
+                let name = this.url.searchParams.get("p");
+                let ext = name.split(".");
+                if (ext.lenght == 1) {
+                    return null;
+                } else {
+                    let suffix = ext.pop();
+                    suffix = suffix.toUpperCase();
+                    return this.office[suffix];
+                }
+            },
+            loadOffice() {
+                let officeType = this.getOfficeType();
+                if (officeType == this.office.DOCX) {
+                    this.getFile('blob', (res) => {
+                        docx.renderAsync(res.data, document.getElementById("container"))
+                            .then(x => console.log("docx: finished"));
+                    })
+                } else if (officeType == this.office.PDF) {
+                    let path = "/static/plugins/office/pdf/web/viewer.html?file=" + this.path;
+                    this.pdfViewerSrc = path;
+                } else if (officeType == this.office.PPTX) {
+                    let path = "/static/plugins/office/PPTXjs/index.html?file=" + this.path;
+                    this.pptxViewerSrc = path;
+                } else if (officeType == this.office.XLSX) {
+                    if (this.workbook) this.workbook = null;
+                    this.tableDataList.length = 0;
+                    this.tableSheetNames.length = 0;
+                    this.curSheetName = null;
+                    this.getFile('blob', (res) => {
+                        var reader = new FileReader();
+                        let this_ = this;
+                        reader.onload = function (e) {
+                            let data = e.target.result;
+                            this_.workbook = XLSX.read(data, { type: "binary" });
+                            this_.tableSheetNames = this_.workbook.SheetNames;
+                            this_.curSheetName = this_.tableSheetNames[0];
+                            this_.viewXLSX();
+                            reader = null;
+                        }
+                        reader.readAsArrayBuffer(res.data)
+                    })
+                }
+            },
+            showOffice(f) {
+                this.curFile = f;
+                this.path = this.prefix + f.raw_path;
+                this.url.searchParams.set("p", f.raw_path);
+                window.history.replaceState(null, null, this.url.href);
+                this.loadOffice();
+            },
+            getFile(mode, cb = null) {
+                fsSource(this.curFile.raw_path, mode).then(res => {
+                    if (cb != null) cb(res)
+                }).catch(err => {
+                    if (cb != null) cb(err)
+                })
+            },
+            viewXLSX() {
+                let sheet = XLSX.utils.sheet_to_json(this.workbook.Sheets[this.curSheetName], { header: 1, defval: "" })
+                this.tableDataList = sheet;
+            },
+            xlsxChangeSheet(n) {
+                this.curSheetName = n;
+                this.viewXLSX();
+            }
+        }))
+    })
+</script>
+
+{% endblock %}

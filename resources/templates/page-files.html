@@ -1,0 +1,1413 @@
+{% extends "ui/layout.html" %}
+
+{% block main %}
+<div class="p-2" x-data="loadData">
+    <!-- 主界面 -->
+    <div class="text-sm breadcrumbs">
+        <ul>
+            <template x-for="(p, idx) in $store.datas.pathList" :key="idx">
+                <li><a x-text="p?p:'主页'" @click="$store.datas.toPath({name: p, is_dir: true})"></a></li>
+            </template>
+        </ul>
+    </div>
+    <div class="pt-2 pb-2">
+        <div class="join rounded-sm">
+            <div class="join-item" x-data="searchData">
+
+                <dialog class="modal" :id="dialogId">
+                    <div class="modal-box rounded-sm p-0"
+                        style="max-height: calc(100vh - 150px);min-height: calc(100vh - 300px)">
+
+                        <div class="flex justify-between items-center border-b" style="height: 48px;">
+                            <div class="join rounded-sm">
+
+                                <input class="input input-bordered join-item text-sm" placeholder="名称" x-model="name" />
+                                <select class="select select-bordered join-item" @change="changeIsDir">
+                                    <option :selected="!is_dir">文件</option>
+                                    <option :selected="is_dir">目录</option>
+                                </select>
+                                <button class="btn join-item btn-neutral" @click="search" :disabled="loading">
+                                    搜索
+                                </button>
+                                <div class="join-item mr-2 flex flex-col justify-center ml-2">
+                                    <template x-if="loading"><span class="loading loading-spinner"></span></template>
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <button class="btn btn-ghost rounded-none" @click="closeDialog">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+
+                        </div>
+
+                        <div style="max-height: calc(100vh - 202px);min-height: calc(100vh - 352px)"
+                            class="overflow-y-scroll">
+                            <template x-for="(f, idx) in dataList" :key="`${f.name}_${f.parent_dir}_${f.size}_${idx}`">
+                                <div class="p-2 border-b">
+                                    <div>
+                                        <a class="text-sm text-black text-break font-bold link link-hover" x-text="f.name" @click="toPath(f)"></a>
+                                    </div>
+                                    <div>
+                                        <a class="text-xs link link-hover text-break" x-text="'来源: '+f.parent_dir"></a>
+                                        <a class="text-xs text-slate-600" x-text="f.size?renderSize(f.size):'-'"></a>
+                                    </div>
+
+                                </div>
+                            </template>
+                            <template x-if="pages.length > 1">
+                                <div class="join mt-3 p-2">
+                                    <template x-for="(p, idx) in pages" :key="p">
+                                        <button class="join-item btn btn-sm btn-outline"
+                                            :class="{'btn-active': p == page}" x-text="p" @click="toPage(p)"></button>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </dialog>
+
+                <button class="btn join-item btn-outline" @click="openDialog">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+        </div>
+
+
+        <div class="join rounded-sm">
+
+            <!-- 不可预览 -->
+            <dialog id="no-preview" class="modal">
+                <div class="modal-box">
+                    <h3 class="font-bold text-lg">不可预览</h3>
+                    <p class="py-4">暂不支持预览，请下载后查看!</p>
+                    <div class="modal-action">
+                        <form method="dialog">
+                            <button class="btn btn-sm">取消</button>
+                        </form>
+                    </div>
+                </div>
+                <form method="dialog" class="modal-backdrop">
+                    <button>close</button>
+                </form>
+            </dialog>
+
+            <!-- 创建文件夹 -->
+            <div class="join-item" x-data="mkdirData">
+                <dialog class="modal z-[1]" :id="dialogId">
+                    <div class="modal-box">
+                        <h3 class="font-bold text-lg mb-2">创建文件夹</h3>
+                        <input type="text" class="input input-bordered w-full" x-model="name" />
+                        <div class="flex justify-end mt-2">
+                            <button class="btn btn-sm btn-neutral text-white" @click="mkdir()" :disabled="loading">
+                                <template x-if="loading"><span class="loading loading-spinner"></span></template>
+                                创建</button>
+                            <button class="btn btn-sm ml-2" @click="closeDialog">取消</button>
+                        </div>
+                    </div>
+                </dialog>
+                <button class="btn btn-neutral join-item" @click="openDialog"><i
+                        class="bi bi-folder-plus"></i>创建文件夹</button>
+            </div>
+            <!-- 创建文件夹 -->
+
+            <!-- 上传文件/文件夹 -->
+            <div class="join-item" x-data="uploadData">
+                <dialog class="modal" :id="dialogId">
+                    <div class="modal-box p-0 rounded-sm relative"
+                        style="max-height: calc(100vh - 150px);min-height: calc(100vh - 300px)">
+                        <div class="flex justify-between items-center border-b" style="height: 48px;">
+                            <div class="join rounded-sm">
+                                <button class="btn join-item btn-neutral" @click="selectFile">上传文件</button>
+                                <button class="btn join-item" @click="selectDir">上传目录</button>
+                                <div class="join-item flex flex-col justify-center ml-3">
+                                    <div class="flex items-center">
+                                        <span class="text-sm">分片上传</span>
+                                        <input type="checkbox" class="toggle toggle-sm ml-1" :checked="mode=='CHUNK'"
+                                            @change="changeUploadMode" />
+                                    </div>
+                                </div>
+                                <div class="join-item flex flex-col justify-center ml-3">
+                                    <div class="flex items-center">
+                                        <span class="text-sm">覆盖同名文件</span>
+                                        <input type="checkbox" class="toggle toggle-sm ml-1" :checked="wipe" x-model="wipe" />
+                                    </div>
+                                </div>
+
+                                <input type="file" :id="fileInputId" class="hidden" multiple @change="addUploadTask" />
+                                <input type="file" :id="dirInputId" class="hidden" webkitdirectory
+                                    @change="addUploadTask" />
+                            </div>
+                            <div class="flex items-center">
+                                <div class="dropdown dropdown-end">
+                                    <div tabindex="111" role="button" class="btn btn-ghost rounded-none">
+                                        <i class="bi bi-three-dots"></i>
+                                    </div>
+                                    <ul tabindex="111"
+                                        class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-36">
+                                        <li><a @click="retryAllFailedTask()">重试失败任务</a></li>
+                                        <li><a @click="clearAllSuccessTask()">清理成功任务</a></li>
+                                        <li><a @click="clearAllFailedTask()">清理失败任务</a></li>
+                                    </ul>
+                                </div>
+                                <button class="btn btn-ghost rounded-none" @click="closeDialog">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="max-height: calc(100vh - 202px);min-height: calc(100vh - 352px)"
+                            class="overflow-y-scroll">
+                            <template x-for="(t, idx) in taskList" :key="t.ident">
+                                <div class="p-3 relative border-b"
+                                    @mouseover="document.getElementById('task_' + t.ident).style.display='flex'"
+                                    @mouseout="document.getElementById('task_' + t.ident).style.display='none'">
+                                    <div class="absolute top-0 left-0 h-full" style="z-index: -1;" x-transition
+                                        :style="{width: t.process + '%' }"
+                                        :class="{'bg-violet-100': t.status != t.statusObj.SUCCESS}"></div>
+                                    <div class="grid grid-cols-12 relative">
+                                        <div class="col-span-12">
+                                            <div><span class="text-sm text-break" x-text="t.name"></span></div>
+                                            <div><span class="text-xs text-slate-600 text-break" x-text="t.path"></span>
+                                            </div>
+                                            <div>
+                                                <span class="text-xs" x-text="`${renderSize(t.size)}`"></span>
+                                                <span class="text-xs ml-1" x-text="`${t.process}%`"></span>
+                                                <span class="text-xs ml-1" x-text="t.status"></span>
+                                                <span class="text-xs ml-1 text-red-500" x-text="t.message"></span>
+                                            </div>
+                                        </div>
+                                        <div class="absolute right-0 top-0 h-full items-center justify-end hidden"
+                                            :id="'task_' + t.ident">
+                                            <template x-if="!t.session_id || t.status == t.statusObj.FAILED">
+                                                <button class="btn btn-circle text-lg bg-base-200"
+                                                    @click="retryCreateTask(t)">
+                                                    <template x-if="t.createLoading"><span
+                                                            class="loading loading-spinner"></span></template>
+                                                    <template x-if="!t.createLoading"><i
+                                                            class="bi bi-arrow-clockwise"></i></template>
+                                                </button>
+                                            </template>
+                                            <button class="btn btn-circle ml-2 text-lg bg-base-200"
+                                                @click="deleteTask(t)">
+                                                <i class="bi bi-trash text-red-500"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </dialog>
+                <button class="btn join-item btn-neutral " @click="openDialog"><i
+                        class="bi bi-cloud-upload"></i>上传文件/目录</button>
+            </div>
+            <!-- 上传文件/文件夹 -->
+        </div>
+
+
+        <div class="join rounded-sm">
+            <!-- 复制/移动文件/文件夹 -->
+            <div class="join-item" x-data="copyAndMoveData" x-show="$store.datas.selectList.length>0">
+                <dialog :id="dialogId" class="modal">
+                    <div class="modal-box rounded-sm p-0 relative"
+                        style="max-height: calc(100vh - 150px);min-height: calc(100vh - 300px)">
+
+
+                        <div class="flex justify-between items-center border-b" style="height: 48px;">
+                            <div class="join rounded-sm">
+                                <button class="btn join-item btn-neutral" x-text="label + '文件/文件夹'"></button>
+                            </div>
+                            <div class="flex items-center">
+                                <button class="btn btn-ghost rounded-none" @click="closeDialog">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+
+
+                        <div class="flex items-center pl-2 pr-2">
+                            <span class="text-sm mr-2" x-text="label + '到: '"></span>
+                            <div class="text-sm breadcrumbs font-bold">
+                                <ul>
+                                    <template x-for="(p, idx) in dirPathList" :key="`${p}_${idx}`">
+                                        <li><a x-text="p?p:'主页'" @click="toDir({name: p, is_dir: true})"></a></li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="pl-2 pr-2 overflow-y-scroll"
+                            style="max-height: calc(100vh - 307px);min-height: calc(100vh - 457px)">
+                            <template x-for="(f, idx) in dirs" :key="`${f.name}${f.size}${f.file_type}${f.modified}`">
+                                <div class="flex items-center mb-2">
+                                    <div class="avatar">
+                                        <div class="w-5 rounded">
+                                            <img src="/static/img/suffix/folder.png" />
+                                        </div>
+                                    </div>
+                                    <a class="ml-2 link link-hover" x-text="f.name" @click="toDir(f)"></a>
+                                </div>
+                            </template>
+                            <template x-if="dirs.length==0">
+                                <div class="mt-2">
+                                    <div role="alert" class="alert">
+                                        <span class="text-sm">没有文件夹啦~</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="modal-action">
+                            <div class="join rounded-sm">
+                                <button class="btn btn-success text-white join-item" @click="action"
+                                    :disabled="loading">
+                                    <template x-if="loading"><span class="loading loading-spinner"></span></template>
+                                    <span x-text="label"></span>
+                                </button>
+                                <button class="btn join-item" @click="closeDialog">取消</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </dialog>
+                <div class="join">
+                    <button class="btn join-item" @click="openDialog('copy')"><i class="bi bi-copy"></i>复制</button>
+                    <button class="btn join-item" @click="openDialog('move')"><i class="bi bi-scissors"></i>移动</button>
+                </div>
+            </div>
+            <!-- 复制/移动文件/文件夹 -->
+
+            <!-- 重命名文件/文件夹 -->
+            <div class="join-item" x-data="renameData" x-show="$store.datas.selectList.length==1">
+                <dialog class="modal" :id="dialogId">
+                    <div class="modal-box">
+                        <h3 class="font-bold text-lg mb-2 text-break" x-text="'重命名:' + file.name"></h3>
+                        <input type="text" class="input input-bordered w-full" x-model="name" :value="name" />
+                        <div class="flex justify-end mt-2">
+
+                            <button class="btn btn-sm btn-neutral text-white" @click="rename" :disabled="loading">
+                                <template x-if="loading"><span class="loading loading-spinner"></span></template>
+                                确定</button>
+                            <button class="btn btn-sm ml-2" @click="closeDialog">取消</button>
+                        </div>
+                    </div>
+                </dialog>
+                <button class="btn join-item" @click="openDialog"><i class="bi bi-pen"></i>重命名</button>
+            </div>
+            <!-- 重命名文件/文件夹 -->
+
+            <!-- 下载文件/文件夹 -->
+            <div class="join-item" x-data="downloadData">
+                <dialog class="modal" :id="dialogId">
+                    <div class="modal-box p-0 rounded-sm relative"
+                        style="max-height: calc(100vh - 150px);min-height: calc(100vh - 300px)">
+                        <div class="flex justify-between items-center" style="height: 48px;">
+                            <button class="btn btn-neutral rounded-none">下载列表</button>
+                            <button class="btn btn-ghost rounded-none" @click="closeDialog"><i
+                                    class="bi bi-x-lg"></i></button>
+                        </div>
+                        <div style="max-height: calc(100vh - 202px);min-height: calc(100vh - 352px)"
+                            class="overflow-y-scroll">
+                            <template x-for="(f, idx) in downloadList"
+                                :key="`${f.name}${f.size}${f.file_type}${f.modified}${idx}`">
+                                <div class="p-3 border-t">
+                                    <div>
+                                        <span class="text-sm" x-text="f.name"></span>
+                                    </div>
+                                    <div class="mt-2 text-xs">
+                                        <span x-text="renderSize(f.size)"></span>
+                                        <span class="ml-1" x-text="`${f.progress}%`"></span>
+                                        <span class="ml-1" x-text="f.dMessage"></span>
+                                    </div>
+                                    <div>
+                                        <progress class="progress w-full" :value="f.progress" max="100"
+                                            :class="{'progress-success': f.progress == 100}"></progress>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </dialog>
+                <button class="btn join-item" @click="$store.datas.selectList.length==1?download():openDialog()"><i
+                        class="bi bi-cloud-download"></i>下载</button>
+            </div>
+            <!-- 下载文件/文件夹 -->
+
+            <!-- 分享文件/文件夹 -->
+            <div class="join-item" x-data="shareData" x-show="$store.datas.selectList.length==1">
+                <dialog class="modal" :id="dialogId">
+                    <div class="modal-box">
+                        <h3 class="font-bold text-lg mb-2" x-text="'分享: ' + fname"></h3>
+
+                        <label class="form-control w-full">
+                            <div class="label">
+                                <span class="label-text">访问密码</span>
+                            </div>
+                            <input type="text" class="input input-bordered w-full text-sm" x-model="param.password" />
+                        </label>
+                        <div class="flex ">
+                            <template x-for="ex in expiredList" :key="ex">
+                                <div class="form-control w-24 p-1">
+                                    <label class="label cursor-pointer">
+                                        <span class="label-text text-xs" x-text="ex"></span>
+                                        <input type="radio" :name="radioName" class="radio" :checked="ex==param.expired"
+                                            @change="param.expired=ex" />
+                                    </label>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="flex justify-end mt-2">
+
+                            <button class="btn btn-sm btn-neutral text-white" @click="share" :disabled="loading">
+                                <template x-if="loading"><span class="loading loading-spinner"></span></template>
+                                确定</button>
+                            <button class="btn btn-sm ml-2" @click="closeDialog">取消</button>
+                        </div>
+                    </div>
+                </dialog>
+                <button class="btn join-item" @click="openDialog"><i class="bi bi-share"></i>分享</button>
+            </div>
+            <!-- 分享文件/文件夹 -->
+
+            <!-- 删除文件/文件夹 -->
+            <div class="join-item" x-data="removeData" x-show="$store.datas.selectList.length>0">
+                <dialog :id="dialogId" class="modal">
+                    <div class="modal-box">
+                        <h3 class="font-bold text-lg">删除文件/文件夹</h3>
+                        <p class="py-4" x-text="`你确定要删除选中的文件/文件夹吗?`"></p>
+                        <div class="modal-action">
+
+                            <button class="btn btn-error btn-sm text-white" @click="removeFile" :disabled="loading">
+                                <template x-if="loading"><span class="loading loading-spinner"></span></template>
+                                删除</button>
+                            <button class="btn btn-sm" @click="closeDialog">取消</button>
+                        </div>
+                    </div>
+                </dialog>
+                <button class="btn join-item text-red-500" @click="openDialog">
+                    <iclass="bi bi-trash"></i>删除
+                </button>
+            </div>
+            <!-- 删除文件/文件夹 -->
+
+        </div>
+    </div>
+
+    <!-- 文件列表显示区 -->
+    <!-- 标题 -->
+
+    <div class="grid grid-cols-12 text-xs font-bold pt-3 pb-3">
+        <div class="col-span-9">
+            <div class="flex items-center">
+                <span class="ml-2"
+                    x-text="$store.datas.selectList.length==0?'名称':'选中'+$store.datas.selectList.length+'文件/文件夹'">
+                </span>
+            </div>
+        </div>
+        <div class="col-span-1">大小</div>
+        <div class="col-span-2">修改日期</div>
+    </div>
+
+    <!-- 内容 -->
+    <div class="overflow-y-scroll relative" style="height: calc(100vh - 230px);">
+        <template x-if="$store.datas.loading">
+            <div class="absolute top-0 left-0 right-0 bottom-0 w-full h-full flex justify-center bg-base-100 z-10">
+                <span class="loading loading-spinner size-12 mt-10"></span>
+            </div>
+        </template>
+        <template x-for="(f, idx) in $store.datas.fileList" :key="`${f.name}${f.size}${f.file_type}${f.modified}`">
+            <div class="border-t pt-3 pb-3"
+                :class="{'bg-violet-100': $store.datas.selectList.includes(f), 'hover:bg-base-200': !$store.datas.selectList.includes(f)}"
+                @dblclick="$store.datas.toPath(f)" @click="$store.datas.selectFile(f)">
+                <div class="grid grid-cols-12 gap-2 text-sm">
+                    <div class="col-span-9">
+                        <div class="flex items-center">
+                            <div class="avatar ml-2">
+                                <div class="w-8 rounded">
+                                    {% if request.ctx.config.preview.thumbnail %}
+                                    <img :src="f.thumbnail?'/api/fs'+f.thumbnail:getSuffixIcon(f.name, f.is_dir)"
+                                        @error="$event.target.src = getUnknowIcon()" />
+                                    {% else %}
+                                    <img :src="getSuffixIcon(f.name, f.is_dir)" @error="$event.target.src = getUnknowIcon()"/>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <a class="ml-2 cursor-default text-break" x-text="f.name"></a>
+                        </div>
+                    </div>
+                    <div class="col-span-1 flex items-center text-slate-500" x-text="f.size==0?'-':renderSize(f.size)">
+                    </div>
+                    <div class="col-span-2 flex items-center text-slate-500" x-text="parseTime(f.modified)">
+                    </div>
+
+                </div>
+            </div>
+        </template>
+        <template x-if="$store.datas.fileList.length==0">
+            <div class="p-2">
+                <div role="alert" class="alert">
+                    <span class="text-sm">该文件夹没有任何内容~</span>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block js %}
+<script src="/static/js/moment.js"></script>
+<script src="/static/js/url.min.js"></script>
+<script src="/static/js/md5.min.js"></script>
+<script>
+    function parseTime(t) {
+        return moment.unix(t).format("YYYY-MM-DD HH:mm:SS")
+    }
+
+    function localConfig() {
+        return JSON.parse(localStorage.getItem('config'))
+    }
+
+    class FileEntry {
+        constructor(param) {
+            this.name = param.name;
+            this.size = param.size;
+            this.is_dir = param.is_dir;
+            this.created = param.created;
+            this.modified = param.modified;
+            this.file_type = param.file_type;
+            this.raw_path = param.raw_path;
+            this.parent_dir = param.parent_dir;
+            this.thumbnail = param.thumbnail;
+
+
+            this.saveHandle = null;
+            this.downloaded = 0;
+            this.progress = 0;
+            this.dMessage = "准备下载"
+        }
+
+        rename(name) {
+            return new Promise((rev, rej) => {
+                fsRename(this.raw_path, name).then(res => {
+                    this.name = name;
+                    this.raw_path = this.parent_dir + name
+                    rev(res);
+                }).catch(err => {
+                    rej(err);
+                })
+            })
+        }
+
+        share(password, expired) {
+            return new Promise((rev, rej) => {
+                shareNew(this.raw_path, password, expired).then(res => {
+                    rev(res);
+                }).catch(err => {
+                    rej(err);
+                })
+            })
+        }
+
+        async download(cb = null) {
+            this.dMessage = "准备下载"
+            try {
+                let response = await fsDownloadFetch(this.raw_path);
+                if (!response.ok) {
+                    this.dMessage = "下载时出错,请稍后尝试"
+                } else {
+                    let ctype = response.headers.get("content-type");
+                    if (ctype == "application/json") {
+                        let res = await response.json();
+                        if (res.code == 410) {
+                            this.dMessage = res.message;
+                        }
+                    } else {
+                        const reader = response.body.getReader();
+                        let result = true;
+                        this.dMessage = "下载中";
+                        while (result) {
+                            const { done, value } = await reader.read();
+                            if (done) {
+                                result = false;
+                                this.dMessage = "下载完成"
+                                break;
+                            }
+                            if (cb != null) {
+                                await cb(value);
+                            }
+                            this.downloaded += value.length;
+                            if (this.size) {
+                                this.progress = parseInt((this.downloaded / this.size) * 100);
+                            }
+                        }
+                    }
+                }
+
+            } catch (err) {
+                this.dMessage = "下载时出错"
+            }
+
+        }
+    }
+
+
+
+    class UploadTask {
+        constructor() {
+            this.ident = null;
+            this.file = null;
+
+            this.session_id = null;
+            this.path = null;
+            this.web_path = null;
+            this.name = null;
+            this.size = null;
+            this.status = null;
+            this.mode = null;
+            this.wipe = false;
+            this.chunk_info = {};
+            this.uploaded = 0;
+
+            this.message = "";
+            this.createLoading = false;
+            this.cancelLoading = false;
+            this.deleteLoading = false;
+            this.process = 0;
+            this.vpath = null;
+
+            this.statusObj = {
+                UPLOADING: "UPLOADING",
+                SUCCESS: "SUCCESS",
+                FAILED: "FAILED"
+            }
+
+            this.modeObj = {
+                STREAM: "STREAM",
+                CHUNK: "CHUNK"
+            }
+
+            this.reader = new FileReader();
+
+        }
+
+        initLocal(file, path, mode, wipe) {
+            this.ident = md5(`${file.name}_${file.size}_${file.type}_${file.lastModified}`);
+            this.file = file;
+            this.path = (path + file.webkitRelativePath).replace(file.name, "");
+            this.web_path = file.webkitRelativePath ? '/' + file.webkitRelativePath : '/' + file.name;
+            this.name = file.name;
+            this.size = file.size;
+            this.mode = mode;
+            this.wipe = wipe;
+            this.setProcess(this.uploaded)
+            return this
+        }
+
+        initNet(data) {
+            this.session_id = data.session_id;
+            this.ident = md5(`${data.name}_${data.size}_${data.mime_type}_${data.modified}`);
+            this.path = data.path;
+            this.name = data.name;
+            this.size = data.size;
+            this.status = data.status;
+            this.uploaded = data.uploaded;
+            this.web_path = data.web_path;
+            this.mode = data.mode;
+            this.wipe = data.wipe;
+            this.chunk_info = data.chunk_info;
+            this.setProcess(this.uploaded);
+            if (this.file == null && this.status == this.statusObj.UPLOADING) {
+                this.message = "再次上传该文件可继续传输"
+            }
+            return this
+        }
+
+        createTask() {
+            let param = {
+                path: this.path,
+                web_path: this.web_path,
+                name: this.name,
+                size: this.size,
+                modified: this.file.lastModified,
+                mime_type: this.file.type,
+                mode: this.mode,
+                wipe: this.wipe
+            }
+            this.message = "";
+            return new Promise((rev, rej) => {
+                this.createLoading = true
+                uploadTaskCreate(
+                    param.path,
+                    param.web_path,
+                    param.name,
+                    param.size,
+                    param.modified,
+                    param.mime_type,
+                    param.mode,
+                    param.wipe
+                ).then(res => {
+                    let resData = res.data.data;
+                    this.session_id = resData.session_id;
+                    this.status = resData.status;
+                    this.uploaded = resData.uploaded;
+                    this.path = resData.path;
+                    this.chunk_info = resData.chunk_info;
+                    this.createLoading = false;
+                    rev(this);
+                }).catch(err => {
+                    this.message = err.data.message
+                    this.createLoading = false;
+                    rev(this)
+                })
+            })
+        }
+
+        deleteTask() {
+            return new Promise((rev, rej) => {
+                this.deleteLoading = true;
+                deleteUpload(this.session_id).then(res => {
+                    this.deleteLoading = false;
+                    rev(this);
+                }).catch(err => {
+                    this.message = err.data.message;
+                    this.deleteLoading = false
+                    rev(this)
+                })
+            })
+        }
+
+        setFile(file) {
+            if (this.file == null) {
+                this.file = file;
+                this.message = "";
+            }
+        }
+
+        setProcess(upload) {
+            this.process = Math.round((upload * 100) / this.size);
+        }
+
+        chunkUpload(cb = null) {
+            let this_ = this;
+            let chunk_size = this_.chunk_info.chunk_size;
+            let chunk_total = this_.chunk_info.chunk_total;
+            let chunk_cur = this_.chunk_info.chunk_cur;
+            if (chunk_cur < chunk_total) {
+                let start = chunk_cur * chunk_size;
+                let c_end = (chunk_cur + 1) * chunk_size;
+                let end = c_end > this_.size ? this_.size : c_end;
+                let chunk_data = this_.file.slice(start, end);
+                this_.reader.readAsArrayBuffer(chunk_data);
+                this_.reader.onload = function () {
+                    uploadChunk(this_.session_id, chunk_cur, this.result, (loaded, total) => {
+                        this_.setProcess(this_.uploaded + loaded)
+                    }).then(res => {
+                        let resData = res.data.data;
+                        this_.status = resData.status;
+                        this_.uploaded = resData.uploaded;
+                        this_.chunk_info = resData.chunk_info;
+                        if (this_.status == this_.statusObj.UPLOADING) {
+                            this_.chunkUpload(cb);
+                        } else {
+                            if (this_.status == this_.statusObj.SUCCESS) {
+                                this_.reader = null;
+                            }
+                            if (cb != null) cb(res);
+                        }
+                    }).catch(err => {
+                        if (err) {
+                            this.message = err.data.message;
+                        }
+
+                        if (cb != null) cb(err);
+                    })
+                }
+            }
+        }
+
+        streamUpload(cb = null) {
+            let this_ = this;
+            let reader = new FileReader();
+            this_.reader.readAsArrayBuffer(this.file);
+            this_.reader.onload = function () {
+
+                uploadStream(this_.session_id, this.result, (loaded, total) => {
+                    this_.setProcess(loaded);
+                }).then(res => {
+                    if (res.data.data != null) {
+                        let resData = res.data.data;
+                        this_.status = resData.status;
+                        this_.uploaded = resData.uploaded;
+                        if (this_.status == this_.statusObj.SUCCESS) {
+                            this_.reader = null;
+                        }
+                    }
+                    if (cb != null) cb(res);
+                }).catch(err => {
+                    if (err) {
+                        this.message = err.data.message;
+                    }
+
+                    if (cb != null) cb(err);
+                })
+            }
+        }
+
+    }
+
+
+    document.addEventListener('alpine:init', () => {
+        Alpine.store('datas', {
+            dirName: null,
+            pathList: [""],
+            fileList: [],
+            selectList: [],
+            loading: false,
+            page: 1,
+            total_page: 0,
+            pages: [],
+            storePathList() {
+                localStorage.setItem("pathList", JSON.stringify(this.pathList));
+            },
+            getPath() {
+                let p = this.pathList.join("/");
+                if (p) {
+                    return p + "/";
+                } else {
+                    return "/";
+                }
+            },
+            init() {
+                let p = localStorage.getItem("pathList");
+                if (p) {
+                    this.pathList = JSON.parse(p);
+                } else {
+                    this.storePathList();
+                }
+                this.getFiles();
+            },
+            getFiles() {
+                this.fileList.length = 0;
+                this.loading = true;
+                let pl = this.dirName ? this.getPath() + this.dirName : this.getPath();
+                fsList(pl, this.page).then(res => {
+                    this.loading = false;
+                    if (this.dirName) this.pathList.push(this.dirName);
+                    this.dirName = null;
+                    this.storePathList();
+                    let resData = res.data.data;
+                    this.page = resData.page;
+                    this.total_page = resData.total_page;
+                    this.pages = resData.pages;
+                    for (let f of resData.data) {
+                        let file = new FileEntry(f);
+                        this.fileList.push(file);
+                    }
+                    for (let n of this.selectList) {
+                        if (!this.fileList.includes(n)) {
+                            let index = this.selectList.indexOf(n);
+                            this.selectList.splice(index, 1);
+                        }
+                    }
+                }).catch(_ => {
+                    this.loading = false;
+                })
+            },
+            selectFile(file) {
+                if (this.selectList.includes(file)) {
+                    let index = this.selectList.indexOf(file);
+                    this.selectList.splice(index, 1);
+                } else {
+                    this.selectList.push(file);
+                }
+            },
+            toPath(f) {
+                this.selectList = [];
+                if (f.is_dir) {
+                    if (f.name) {
+                        this.dirName = f.name;
+                        if (this.pathList.includes(this.dirName)) {
+                            let index = this.pathList.indexOf(this.dirName);
+                            this.pathList.splice(index, this.pathList.length - index);
+                        }
+                    } else {
+                        this.pathList = [""];
+                    }
+
+                    this.getFiles();
+                } else {
+                    let toPreview = getPreviewExt(f.name);
+                    if (toPreview) {
+                        window.location.href = toPreview + "?p=" + f.raw_path;
+                    } else {
+                        document.getElementById("no-preview").showModal();
+                    }
+
+                }
+            }
+
+        })
+
+        Alpine.data("searchData", () => ({
+            dataList: [],
+            page: 1,
+            total_page: 0,
+            pages: [],
+            is_dir: false,
+            name: "",
+            dialogId: "fs_search",
+            loading: false,
+            changeIsDir() {
+                this.is_dir = !this.is_dir;
+            },
+            openDialog() {
+                document.getElementById(this.dialogId).showModal();
+            },
+            closeDialog() {
+                document.getElementById(this.dialogId).close();
+                this.dataList = [];
+                this.page = 1;
+                this.total_page = 0;
+                this.is_dir = false;
+                this.pages = [];
+                this.name = "";
+            },
+            search() {
+                this.loading = true;
+                fsSearch(Alpine.store("datas").getPath(), this.name, this.is_dir, this.page).then(res => {
+                    let resData = res.data.data;
+                    this.page = resData.page;
+                    this.total_page = resData.total_page;
+                    this.pages = resData.pages;
+                    this.dataList = resData.data;
+                    this.loading = false;
+                }).catch(_ => {
+                    this.loading = false;
+                })
+            },
+            toPage(p) {
+                this.page = p;
+                this.search();
+            },
+            toPath(f) {
+                let dir;
+                if (f.is_dir) {
+                    dir = f.parent_dir + f.name;
+                    
+                } else {
+                    dir = f.parent_dir;
+                    if (dir.endsWith("/")) {
+                        dir = dir.slice(0, dir.length - 1);
+                    }
+                }
+                let pList = dir.split("/");
+                console.log(pList);
+                Alpine.store("datas").pathList = pList;
+                Alpine.store("datas").getFiles();
+                this.closeDialog();
+            }
+        }))
+
+
+        Alpine.data("uploadData", () => ({
+            taskList: [],
+            uploadQueue: [],
+            uploadCount: 0,
+            mode: "STREAM",
+            wipe: false,
+            maxParall: window.config.fs.max_parallel,
+            taskCount: 0,
+            is_lock: false,
+            fileInputId: "upload_file",
+            dirInputId: "upload_dir",
+            dialogId: "fs_upload",
+            loadUploadMode() {
+                let m = localStorage.getItem("uploadMode");
+                if (m) this.mode = m;
+            },
+            changeUploadMode() {
+                if (this.mode == "STREAM") {
+                    this.mode = "CHUNK";
+                } else if (this.mode == "CHUNK") {
+                    this.mode = "STREAM";
+                }
+                localStorage.setItem("uploadMode", this.mode);
+            },
+            openDialog() {
+                if (!this.taskList.length) {
+                    this.getTaskFromNet();
+                }
+                this.loadUploadMode();
+                document.getElementById(this.dialogId).showModal();
+            },
+            closeDialog() {
+                document.getElementById(this.dialogId).close();
+            },
+            getTaskFromNet() {
+                uploadList().then(res => {
+                    let tasks = res.data.data;
+                    for (let t of tasks) {
+                        let task = new UploadTask().initNet(t);
+                        this.taskList.push(task);
+                    }
+                })
+            },
+            async addUploadTask(event) {
+                let this_ = this;
+                let files = event.target.files;
+                for (let file of files) {
+                    let ident = md5(`${file.name}_${file.size}_${file.type}_${file.lastModified}`);
+                    let index = this_.getIndex(ident);
+                    if (index != null) {
+                        if (this_.taskList[index].status != this_.taskList[index].statusObj.SUCCESS) {
+                            this_.taskList[index].setFile(file);
+                            this_.uploadQueue.push(this_.taskList[index]);
+                        }
+                    } else {
+                        let task = new UploadTask().initLocal(file, Alpine.store("datas").getPath(), this_.mode, this_.wipe);
+                        let fineTask = await task.createTask();
+                        this_.taskList.push(fineTask);
+                        if (fineTask.session_id) {
+                            this_.uploadQueue.push(fineTask);
+                        }
+                    }
+                }
+                event.target.value = "";
+                if (!this_.is_lock) {
+                    this_.upload();
+                }
+
+            },
+            selectFile() {
+                const fInput = document.getElementById(this.fileInputId);
+                fInput.click();
+            },
+            selectDir() {
+                const dInput = document.getElementById(this.dirInputId);
+                dInput.click();
+            },
+            getIndex(ident) {
+                for (let i = 0; i < this.taskList.length; i++) {
+                    if (this.taskList[i].ident == ident) {
+                        return i;
+                    }
+                }
+                return null;
+            },
+            async retryCreateTask(task) {
+                let fineTask = await task.createTask();
+                if (fineTask.session_id) {
+                    this.uploadQueue.push(fineTask);
+                }
+                if (!this.is_lock) {
+                    this.upload();
+                }
+            },
+            async retryAllFailedTask() {
+                for (let task of this.taskList) {
+                    if (task.status == task.statusObj.FAILED && task.session_id) {
+                        this.uploadQueue.push(task);
+                    }
+                }
+                if (!this_.is_lock) {
+                    this_.upload();
+                }
+            },
+            async clearAllSuccessTask() {
+                for (let task of this.taskList) {
+                    if (task.status == task.statusObj.SUCCESS) {
+                        let index = this.getIndex(task.ident);
+                        let res = await task.deleteTask();
+                        this.taskList.splice(index, 1);
+                    }
+                }
+            },
+            async clearAllFailedTask() {
+                for (let task of this.taskList) {
+                    if (task.status == 'FAILED') {
+                        let index = this.getIndex(task.ident);
+                        let res = await task.deleteTask();
+                        this.taskList.splice(index, 1);
+                    }
+                }
+            },
+            async deleteTask(task) {
+                let index = this.getIndex(task.ident);
+                let t = this.taskList[index];
+                if (t.session_id) {
+                    await t.deleteTask();
+                }
+                this.taskList.splice(index, 1);
+                if (this.uploadQueue.length == 0) {
+                    this.is_lock = false;
+                }
+                task = null
+            },
+            upload() {
+                let this_ = this;
+                if (!this_.is_lock && this_.uploadQueue.length) {
+                    const nextTask = () => {
+                        if (this_.uploadQueue.length > 0) {
+                            let curTask = this_.uploadQueue.shift();
+                            this_.taskCount++;
+                            if (this_.taskCount >= this_.maxParall) {
+                                this_.is_lock = true;
+                            }
+                            if (curTask.mode == curTask.modeObj.STREAM) {
+                                curTask.streamUpload(
+                                    (res) => {
+                                        this_.taskCount--;
+                                        curTask.file = null;
+                                        nextTask();
+                                    }
+                                )
+                            }
+                            if (curTask.mode == curTask.modeObj.CHUNK) {
+                                curTask.chunkUpload(
+                                    (res) => {
+                                        this_.taskCount--;
+                                        curTask.file = null;
+                                        nextTask();
+                                    }
+                                )
+                            }
+                        } else {
+                            if (this_.taskCount == 0) {
+                                this_.is_lock = false;
+                                Alpine.store('datas').getFiles();
+                            }
+                        }
+                    }
+
+                    new Array(Math.min(this_.uploadQueue.length, this_.maxParall)).fill(null).map(() => nextTask())
+                }
+
+            },
+
+        }))
+
+        Alpine.data("loadData", () => ({}))
+
+        Alpine.data("downloadData", () => ({
+            downloadList: [],
+            downloadQueue: [],
+            is_downloading: false,
+            maxParall: window.config.fs.max_parallel,
+            dialogId: "fs_download",
+            openDialog() {
+                document.getElementById(this.dialogId).showModal();
+            },
+            closeDialog() {
+                document.getElementById(this.dialogId).close();
+            },
+            async getEndDir(dirHandle, pl) {
+                let handle = dirHandle;
+                for (let name of pl) {
+                    handle = await handle.getDirectoryHandle(name, { create: true });
+                }
+                return handle
+            },
+            async download() {
+                let files = Alpine.store("datas").selectList;
+                if (files.length == 1) {
+                    let f = files[0];
+                    if (f.is_dir) {
+                        const currentDir = await window.showDirectoryPicker({ mode: "readwrite" })
+
+                        let res = await fsFiles(f.raw_path)
+                        let data = res.data.data;
+                        for (let d of data) {
+                            let file = new FileEntry(d);
+                            let cDir = Alpine.store("datas").getPath();
+                            let pDir = file.parent_dir.slice(cDir.length, file.parent_dir.length - 1)
+                            const saveDir = await this.getEndDir(currentDir, pDir.split("/"));
+                            const saveFile = await saveDir.getFileHandle(d.name, { create: true });
+                            file.saveHandle = saveFile;
+                            this.downloadList.push(file);
+                            this.downloadQueue.push(file)
+                        }
+
+                    } else {
+
+                        const opts = {
+                            suggestedName: f.is_dir ? f.name + ".zip" : f.name
+                        };
+                        const handler = await window.showSaveFilePicker(opts)
+                        f.saveHandle = handler;
+                        this.downloadList.push(f);
+                        this.downloadQueue.push(f)
+                    }
+
+                    this.openDialog();
+                    if (this.downloadQueue.length) {
+                        if (!this.is_downloading) {
+                            this.streamDownload();
+                            this.is_downloading = true;
+                        }
+                    }
+                    Alpine.store("datas").selectList = [];
+                }
+            },
+            streamDownload() {
+                let this_ = this;
+                if (!this_.is_downloading && this_.downloadQueue.length) {
+                    const nextTask = async () => {
+                        if (this_.downloadQueue.length > 0) {
+                            let curTask = this_.downloadQueue.shift();
+                            const writable = await curTask.saveHandle.createWritable();
+                            await curTask.download(async (v) => {
+                                await writable.write(v);
+                            })
+                            await writable.close()
+                            curTask.saveHandle = null;
+                            await nextTask();
+                        } else {
+                            this_.is_downloading = false;
+                        }
+                    }
+                    console.log(this_.maxParall)
+                    new Array(Math.min(this_.downloadQueue.length, this_.maxParall)).fill(null).map(() => nextTask())
+                }
+
+            },
+
+        }))
+
+        Alpine.data("mkdirData", () => ({
+            dialogId: "fs_mkdir",
+            name: null,
+            loading: false,
+            openDialog() {
+                document.getElementById(this.dialogId).showModal();
+            },
+            closeDialog() {
+                document.getElementById(this.dialogId).close();
+                this.loading = false;
+                this.name = null;
+            },
+            mkdir() {
+                this.loading = true;
+                fsMkdir(Alpine.store("datas").getPath(), this.name).then(res => {
+                    this.loading = false;
+                    this.name = null;
+                    this.closeDialog();
+                    let file = new FileEntry(res.data.data);
+                    Alpine.store('datas').fileList.unshift(file);
+                }).catch(_ => {
+                    this.loading = false;
+                })
+            }
+        }))
+
+        Alpine.data("removeData", () => ({
+            dialogId: "fs_remove",
+            loading: false,
+            openDialog() {
+                document.getElementById(this.dialogId).showModal();
+            },
+            closeDialog() {
+                document.getElementById(this.dialogId).close();
+                this.loading = false;
+            },
+            removeFile() {
+                this.loading = true;
+                let files = [...Alpine.store("datas").selectList];
+                let names = [];
+                for (let f of files) {
+                    names.push(f.name);
+                }
+                if (names) {
+                    fsRemove(Alpine.store("datas").getPath(), names).then(res => {
+                        $vh.success(res.data.message)
+                        this.loading = false;
+                        this.closeDialog();
+                        Alpine.store('datas').getFiles();
+                    }).catch(_ => {
+                        this.loading = false;
+                    })
+                }
+
+            }
+        }))
+
+        Alpine.data("renameData", () => ({
+            file: {},
+            name: null,
+            dialogId: "fs_rename",
+            loading: false,
+            openDialog() {
+                if (Alpine.store("datas").selectList.length == 1) {
+                    this.file = Alpine.store("datas").selectList[0];
+                    this.name = this.file.name;
+                }
+                document.getElementById(this.dialogId).showModal();
+            },
+            closeDialog() {
+                this.name = null;
+                this.file = {};
+                this.loading = false;
+                document.getElementById(this.dialogId).close();
+            },
+            rename() {
+                this.loading = true;
+                if (this.name && this.file) {
+                    this.file.rename(this.name).then(res => {
+                        $vh.success(res.data.message)
+                        this.loading = false;
+                        this.closeDialog();
+                    }).catch(_ => {
+                        this.loading = false;
+                    })
+                }
+            }
+        }))
+
+        Alpine.data("copyAndMoveData", () => ({
+            dst_dir: null,
+            label: "",
+            mode: "",
+            dirPathList: [""],
+            page: 1,
+            total_page: 0,
+            pages: [],
+            loading: false,
+            dirs: [],
+            dialogId: "fs_copy_move",
+            openDialog(mode) {
+                this.mode = mode;
+                if (mode == "copy") this.label = "复制";
+                if (mode == "move") this.label = "移动";
+                document.getElementById(this.dialogId).showModal();
+                this.getDirs();
+            },
+            closeDialog() {
+                this.loading = false;
+                document.getElementById(this.dialogId).close();
+            },
+            getDirPath() {
+                let p = this.dirPathList.join("/");
+                if (p) {
+                    return p + "/";
+                } else {
+                    return "/";
+                }
+            },
+            getDirs() {
+                let pl = this.dst_dir ? this.getDirPath() + this.dst_dir : this.getDirPath();
+                fsDirs(pl, 1).then(res => {
+                    let resData = res.data.data;
+                    this.dirs = resData.data;
+                    this.page = resData.page;
+                    this.total_page = resData.total_page;
+                    this.pages = resData.pages;
+                    if (this.dst_dir) this.dirPathList.push(this.dst_dir);
+                    this.dst_dir = null;
+                })
+            },
+            toDir(f) {
+                if (f.is_dir) {
+                    if (f.name) {
+                        this.dst_dir = f.name;
+                        if (this.dirPathList.includes(this.dst_dir)) {
+                            let index = this.dirPathList.indexOf(this.dst_dir);
+                            this.dirPathList.splice(index, this.dirPathList.length - index);
+                        }
+                    } else {
+                        this.dirPathList = [""];
+                    }
+                    this.getDirs();
+                }
+            },
+            action() {
+                this.loading = true;
+                let src_dir = Alpine.store("datas").getPath();
+                let dst_dir = this.getDirPath();
+                let files = Alpine.store("datas").selectList;
+                let names = [];
+                for (let f of files) {
+                    names.push(f.name);
+                }
+                if (names) {
+                    if (this.mode == "copy") {
+                        fsCopy(src_dir, dst_dir, names).then(res => {
+                            $vh.success(res.data.message)
+                            this.loading = false;
+                            this.closeDialog();
+                            this.dst_dir = null;
+                            this.dirPathList = [""];
+                            Alpine.store('datas').getFiles();
+                        }).catch(_ => {
+                            this.loading = false;
+                        })
+                    }
+                    if (this.mode == "move") {
+                        fsMove(src_dir, dst_dir, names).then(res => {
+                            $vh.success(res.data.message)
+                            this.loading = false;
+                            this.closeDialog();
+                            this.dst_dir = null;
+                            this.dirPathList = [""];
+                            Alpine.store('datas').getFiles();
+                        }).catch(_ => {
+                            this.loading = false;
+                        })
+                    }
+                }
+            }
+        }))
+
+        Alpine.data("shareData", () => ({
+            file: null,
+            fname: "",
+            param: {
+                password: "",
+                expired: "",
+            },
+            expiredList: [],
+            dialogId: "fs_share",
+            radioName: "fs_share_radio",
+            loading: false,
+            openDialog() {
+                this.getShareExpired();
+                if (Alpine.store("datas").selectList.length == 1) {
+                    this.file = Alpine.store("datas").selectList[0];
+                    this.fname = this.file.name;
+                }
+                document.getElementById(this.dialogId).showModal();
+
+            },
+            closeDialog() {
+                document.getElementById(this.dialogId).close();
+                this.expiredList = [];
+                this.param.password = "";
+                this.param.expired = "";
+                this.file = null;
+                this.fname = "";
+                this.loading = false;
+            },
+            getShareExpired() {
+                shareExpired().then(res => {
+                    this.expiredList = res.data.data;
+                    this.param.expired = this.expiredList[0];
+                })
+            },
+            share() {
+                this.loading = true;
+                if (this.file) {
+                    this.file.share(this.param.password, this.param.expired).then(res => {
+                        $vh.success(res.data.message)
+                        this.loading = false;
+                        this.closeDialog()
+                    }).catch(_ => {
+                        this.loading = false;
+                    })
+                }
+            }
+        }))
+
+
+    })
+</script>
+{% endblock %}

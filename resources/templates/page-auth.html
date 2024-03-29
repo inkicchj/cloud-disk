@@ -1,0 +1,98 @@
+{% extends "ui/layout.html" %}
+
+
+{% block main %}
+
+<div class="p-2">
+    <div class="bg-base-100 " x-data="authData">
+        <div class="border p-5 rounded-sm overflow-y-scroll" style="height: calc(100vh - 90px);">
+            <div><span>基本信息</span></div>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">用户名</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="name"
+                    :value="name" />
+            </label>
+            <div class="mt-5">
+                <button class="btn btn-neutral text-white" @click="updateName" :disabled="loading01">
+                    更改用户名
+                    <template x-if="loading01">
+                        <span class="loading loading-spinner"></span>
+                    </template>
+                </button>
+            </div>
+
+            <div class="mt-5"><span>更改密码</span></div>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">新密码</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="new_pwd" />
+            </label>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">旧密码</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="old_pwd"/>
+            </label>
+            <div class="mt-5">
+                <button class="btn btn-neutral text-white" @click="updatePwd" :disabled="loading02">
+                    更改密码
+                    <template x-if="loading02">
+                        <span class="loading loading-spinner"></span>
+                    </template>
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block js %}
+<script src="/static/js/url.min.js"></script>
+
+<script>
+
+    document.addEventListener("alpine:init", () => {
+
+        Alpine.data("authData", () => ({
+            loading01: false,
+            loading02: false,
+            name: null,
+            new_pwd: "",
+            old_pwd: "",
+            init() {
+                authMe().then(res => {
+                    this.name = res.data.data.name;
+                })
+            },
+            updateName() {
+                this.loading01 = true
+                authUpdateName(this.name).then(res => {
+                    $vh.success(res.data.message)
+                    this.loading01 = false;
+                }).catch(_ => {
+                    this.loading01 = false;
+                })
+            },
+            updatePwd() {
+                this.loading02 = true
+                authUpdatePwd(this.old_pwd, this.new_pwd).then(res => {
+                    $vh.success(res.data.message)
+                    this.loading02 = false;
+                }).catch(_ => {
+                    this.loading02 = false;
+                })
+            }
+
+        }))
+
+    })
+
+</script>
+
+{% endblock %}

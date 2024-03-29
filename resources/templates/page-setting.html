@@ -1,0 +1,195 @@
+{% extends "ui/layout.html" %}
+
+
+{% block main %}
+
+<div class="p-2">
+    <div class="bg-base-100" x-data="setting" >
+
+        <div class="border p-5 rounded-sm overflow-y-scroll" style="height: calc(100vh - 160px);">
+            <div><span>网站</span></div>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">站点名称</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="data.website.title"
+                    :value="data.website.title" />
+            </label>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">我的名称</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="data.website.name"
+                    :value="data.website.name" />
+            </label>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">站点版本</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="data.website.version"
+                    :value="data.website.version" />
+            </label>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">站点图标</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="data.website.icon"
+                    :value="data.website.icon" />
+            </label>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">通知消息</span>
+                </div>
+                <textarea class="textarea textarea-bordered text-sm" x-model="data.website.notice" :value="data.website.notice"></textarea>
+            </label>
+
+            <div class="mt-5"><span>预览</span></div>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">文档预览</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="data.preview.office"
+                    :value="data.preview.office" />
+            </label>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">文本预览</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="data.preview.text"
+                    :value="data.preview.text" />
+            </label>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">图片预览</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="data.preview.image"
+                    :value="data.preview.image" />
+            </label>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">视频预览</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="data.preview.video"
+                    :value="data.preview.video" />
+            </label>
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">音频预览</span>
+                </div>
+                <input type="text" class="input input-bordered w-full text-sm" x-model="data.preview.audio"
+                    :value="data.preview.audio" />
+            </label>
+            <div class="form-control w-32">
+                <label class="label cursor-pointer">
+                    <span class="label-text">自动播放视频</span>
+                    <input type="checkbox" class="checkbox" :check="data.preview.auto_play_video" x-model="data.preview.auto_play_video" />
+                </label>
+            </div>
+            <div class="form-control w-32">
+                <label class="label cursor-pointer">
+                    <span class="label-text">自动播放音频</span>
+                    <input type="checkbox" class="checkbox" :check="data.preview.auto_play_audio" x-model="data.preview.auto_play_audio" />
+                </label>
+            </div>
+            <div class="form-control w-32">
+                <label class="label cursor-pointer">
+                    <span class="label-text">显示缩略图</span>
+                    <input type="checkbox" class="checkbox" :check="data.preview.thumbnail" x-model="data.preview.thumbnail" />
+                </label>
+            </div>
+
+            <div class="mt-5"><span>文件系统</span></div>
+            <label class="form-control w-full max-w-xs">
+                <div class="label">
+                    <span class="label-text text-neutral-500">分页模式</span>
+                </div>
+                <input type="number" class="input input-bordered w-full text-sm" x-model="data.fs.pagination_mode" :value="data.fs.pagination_mode" />
+            </label>
+
+            <label class="form-control w-full max-w-xs">
+                <div class="label">
+                    <span class="label-text text-neutral-500">每页数量</span>
+                </div>
+                <input type="number" class="input input-bordered w-full text-sm" x-model="data.fs.pagination_size" :value="data.fs.pagination_size" />
+            </label>
+
+            <label class="form-control w-full max-w-xs">
+                <div class="label">
+                    <span class="label-text text-neutral-500" x-text="'最大上传: ' + renderSize(data.fs.max_upload_size)"></span>
+                </div>
+                <input type="number" class="input input-bordered w-full text-sm" x-model="data.fs.max_upload_size" :value="data.fs.max_upload_size" />
+            </label>
+
+            <label class="form-control w-full max-w-xs">
+                <div class="label">
+                    <span class="label-text text-neutral-500" x-text="'最大下载: ' + renderSize(data.fs.max_download_size)"></span>
+                </div>
+                <input type="number" class="input input-bordered w-full text-sm" x-model="data.fs.max_download_size" :value="data.fs.max_download_size" />
+            </label>
+
+
+            <label class="form-control w-full max-w-xs">
+                <div class="label">
+                    <span class="label-text text-neutral-500">上传、下载并行数量</span>
+                </div>
+                <input type="number" class="input input-bordered w-full text-sm" x-model="data.fs.max_parallel" :value="data.fs.max_parallel" />
+            </label>
+
+            <label class="form-control w-full max-w-xs">
+                <div class="label">
+                    <span class="label-text text-neutral-500" x-text="'分片大小: ' + renderSize(data.fs.chunk_size)"></span>
+                </div>
+                <input type="number" class="input input-bordered w-full text-sm" x-model="data.fs.chunk_size" :value="data.fs.chunk_size" />
+            </label>
+
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text text-neutral-500">跳过下载文件</span>
+                </div>
+                <textarea class="textarea textarea-bordered text-sm" x-model="data.fs.skip_files" :value="data.fs.skip_files"></textarea>
+            </label>
+
+
+
+        </div>
+        <div class="mt-5">
+            <button class="btn btn-neutral text-white ml-2" @click="update" :disabled="loading">
+                更新
+                <template x-if="loading">
+                    <span class="loading loading-spinner"></span>
+                </template>
+            </button>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block js %}
+<script src="/static/js/url.min.js"></script>
+
+<script>
+
+    document.addEventListener("alpine:init", () => {
+
+        Alpine.data("setting", () => ({
+            data: window.config,
+            loading: false,
+            update() {
+                this.loading = true;
+                configUpdate(this.data).then(res => {
+                    $vh.success(res.data.message)
+                    this.loading = false;
+                }).catch(_ => {
+                    this.loading = false;
+                })
+            }
+        }))
+
+    })
+
+</script>
+
+{% endblock %}

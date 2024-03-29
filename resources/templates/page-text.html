@@ -1,0 +1,130 @@
+{% extends "ui/layout.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/plugins/hljs/default.min.css">
+<script src="/static/plugins/hljs/highlight.min.js"></script>
+<script src="/static/js/marked.js"></script>
+<style>
+    .hljs {
+        background: #ffffff !important;
+    }
+</style>
+{% endblock %}
+
+{% block main %}
+
+<div class="p-2" x-data="audioData">
+    <div>
+        <button class="btn rounded-sm">文本预览</button>
+        <a class="btn rounded-sm btn-neutral" :href="path">下载</a>
+        <button class="btn text-sm btn-ghost rounded-sm text-sky-700" x-text="curFile.name"></button>
+    </div>
+    <div class="border w-full mt-3 grid grid-cols-12" style="height: calc(100vh - 150px);">
+        <div class="col-span-10 overflow-y-scroll">
+            <div id="view" ></div>
+        </div>
+        <div class="col-span-2 h-full w-full border-l overflow-y-scroll">
+            <template x-for="(f, idx) in fileList" :key="idx">
+                <div class="border" :class="{'bg-neutral text-neutral-content': curFile.name == f.name}"
+                    @click="play(f)">
+                    <div class="pl-1 pr-1 pb-1 ">
+                        <span class="text-xs text-break cursor-default" x-text="f.name"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block js %}
+<script>
+
+    const codeLanguage = {
+        py: "python",
+        rs: "rust",
+        js: "javascript",
+        jsx: "javascript",
+        txt: "plaintext",
+        html: "html",
+        htm: "html",
+        nohighlight: "nohighlight",
+        json: "josn",
+        r: "r",
+        java: "java",
+        jsp: "jsp",
+        go: "go",
+        zig: "zig",
+        nim: "nim"
+    }
+
+    document.addEventListener("alpine:init", () => {
+        Alpine.data("audioData", () => ({
+            path: null,
+            prefix: '/api/fs/source?path=',
+            curFile: {},
+            fileList: [],
+            loading: false,
+            url: new URL(window.location.href),
+            vditor: null,
+            init() {
+                let p = this.url.searchParams.get("p");
+                if (p) {
+                    fsDetail(p).then(res => {
+                        let file = res.data.data;
+                        this.curFile = file;
+                        fsList(file.parent_dir, 1).then(res1 => {
+                            let data = res1.data.data.data;
+                            for (let f of data) {
+                                if (!f.is_dir && f.file_type == file.file_type) {
+                                    this.fileList.push(f)
+                                }
+                            }
+
+                        })
+                        this.$nextTick(() => {
+                            this.play(file)
+                        })
+
+                    })
+                }
+
+            },
+            getTextType() {
+                let name = this.curFile.name;
+                let ext = name.split(".");
+                if (ext.lenght == 1) {
+                    return codeLanguage.nohighlight;
+                } else {
+                    let suffix = ext.pop();
+                    suffix = suffix.toLowerCase();
+                    return codeLanguage[suffix];
+                }
+            },
+            play(f) {
+
+                this.curFile = f;
+                this.path = this.prefix + f.raw_path;
+                this.url.searchParams.set("p", f.raw_path);
+                window.history.replaceState(null, null, this.url.href);
+
+                this.getFile((res) => {
+                    let textContent = "```" + this.getTextType() + "\n" + res.data + "\n```";
+                    document.getElementById("view").innerHTML = marked(textContent);
+                    hljs.highlightAll();
+                })
+
+            },
+            getFile(cb = null) {
+                fsSource(this.curFile.raw_path, 'stream').then(res => {
+                    if (cd != null) cb(res);
+                }).catch(res => {
+                    if (cb != null) cb(res);
+                })
+            }
+        }))
+    })
+</script>
+
+{% endblock %}

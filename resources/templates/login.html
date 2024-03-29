@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" />
+    <meta name="renderer" content="webkit" />
+
+    <link href="/static/css/daisyui.full.min.css" rel="stylesheet" type="text/css" />
+    <script src="/static/js/tailwindcss.3.4.1.js"></script>
+    <!-- <script src="/static/js/axios.min.js"></script> -->
+    <link rel="stylesheet" href="/static/css/bootstrap-icons.min.css">
+
+    <link rel="stylesheet" href="/static/css/message.min.css">
+
+    <script defer src="/static/js/alpine.js"></script>
+
+    <title>登录-{{ request.ctx.config.website.title }}</title>
+</head>
+
+<body>
+    <div class="hero min-h-screen bg-base-200" style="background-image: url(/static/img/bg.jpg);">
+        <div class="hero-content flex-col lg:flex-row-reverse">
+            <div class="text-center lg:text-left">
+                <h1 class="text-5xl font-bold">{{ request.ctx.config.website.title }}</h1>
+                <p class="py-6">{{ request.ctx.config.website.title }}通过挂载本地路径的方式创建存储空间，实现你的空间，由你定义。</p>
+            </div>
+            <div class="card shrink-0 w-full max-w-sm shadow-2xl bg-base-100" x-data="loginData">
+                <div class="card-body">
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">用户名</span>
+                        </label>
+                        <input type="text" class="input input-bordered" required x-model="name"/>
+                    </div>
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">密码</span>
+                        </label>
+                        <input type="password" class="input input-bordered" required x-model="password"/>
+                    </div>
+                    <div class="form-control mt-6">
+                        <button class="btn btn-neutral" :disabled="loading" @click="login">
+                            <template x-if="loading">
+                                <span class="loading loading-spinner"></span>
+                            </template>
+                            登录
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="/static/js/vh.toast.min.js"></script>
+<script src="/static/js/cookie.js"></script>
+<script src="/static/js/axios.js"></script>
+<script src="/static/js/request.js"></script>
+<script src="/static/js/l.js"></script>
+<script>
+
+    document.addEventListener("alpine:init", () => {
+        Alpine.data("loginData", () => ({
+            name: "",
+            password: "",
+            loading: false,
+            login() {
+                this.loading = true;
+                authLogin(this.name, this.password).then(res => { 
+                    this.loading = false;
+                   
+                    window.location = "/";
+                    
+                }).catch(err => {
+                    this.loading = false
+                })
+            }
+        }))
+    })
+
+    
+</script>
+
+</html>

@@ -1,0 +1,86 @@
+{% extends "ui/layout.html" %}
+
+
+{% block main %}
+
+
+<div class="p-2" x-data="imageData">
+    <div>
+        <button class="btn rounded-sm">预览图片</button>
+        <a class="btn rounded-sm btn-neutral" :href="path">下载</a>
+        <button class="btn text-sm btn-ghost rounded-sm text-sky-700" x-text="curFile.name"></button>
+    </div>
+    <div class="border mt-3 grid grid-cols-12" style="height: calc(100vh - 150px);">
+        <div class="col-span-10 h-full relative" style="height: calc(100vh - 150px);">
+            <img class="w-full h-full object-contain bg-neutral-900" :src="path" @load="loading = false" />
+            <template x-if="loading">
+                <div class="absolute top-0 right-0 p-2">
+                    <span class="loading loading-spinner text-white"></span>
+                </div>
+            </template>
+        </div>
+        <div class="col-span-2 h-full w-full border-l overflow-y-scroll">
+            <template x-for="(f, idx) in fileList" :key="idx">
+                <div class="border" :class="{'bg-neutral text-neutral-content': curFile.name == f.name}" @click="play(f)">
+                    <template x-if="f.thumbnail">
+                        <div class="m-1">
+                            <img class="h-36 w-full object-cover" :src="tPrefix + f.thumbnail">
+                        </div>
+                    </template>
+                    <div class="pl-1 pr-1 pb-1 ">
+                        <span class="text-xs text-break cursor-default" x-text="f.name"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block js %}
+<script>
+    document.addEventListener("alpine:init", () => {
+        Alpine.data("imageData", () => ({
+            path: null,
+            prefix: '/api/fs/source?path=',
+            tPrefix: '/api/fs',
+            curFile: {},
+            fileList: [],
+            loading: false,
+            url: new URL(window.location.href),
+            init() {
+                let p = this.url.searchParams.get("p")
+                if (p) {
+                    fsDetail(p).then(res => {
+                        let file = res.data.data;
+                        fsList(file.parent_dir, 1).then(res1 => {
+                            let data = res1.data.data.data;
+                            for (let f of data) {
+                                if (!f.is_dir && f.file_type == file.file_type) {
+                                    this.fileList.push(f)
+                                }
+                            }
+
+                        })
+                        this.$nextTick(() => {
+                            this.play(file)
+                        })
+                    })
+                }
+            },
+            play(f) {
+                this.loading = true;
+                this.curFile = f;
+                this.path = this.prefix + f.raw_path;
+                this.url.searchParams.set("p", f.raw_path)
+                window.history.replaceState(null, null, this.url.href)
+            },
+
+        }))
+
+    })
+
+</script>
+
+{% endblock %}

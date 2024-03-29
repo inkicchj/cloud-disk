@@ -1,0 +1,122 @@
+{% extends "ui/layout.html" %}
+
+
+{% block main %}
+
+<div class="p-2">
+    <div>
+        <a class="font-bold btn rounded-sm">新建存储空间</a>
+    </div>
+    <div class="bg-base-100 mt-3" x-data="storageData">
+
+        <div class="border p-5 rounded-sm">
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text">挂载名称</span>
+                </div>
+                <input type="text" class="input input-bordered w-full" x-model="param.mount_name" />
+            </label>
+
+            <label class="form-control w-full max-w-xl">
+                <div class="label">
+                    <span class="label-text">本地路径</span>
+                </div>
+                <input type="text" class="input input-bordered w-full" x-model="param.root_path" />
+            </label>
+
+
+            <label class="form-control w-full max-w-xs">
+                <div class="label">
+                    <span class="label-text">排序</span>
+                </div>
+                <input type="number" class="input input-bordered w-full" x-model="param.order" />
+            </label>
+
+            <label class="form-control w-full max-w-xs">
+                <div class="label">
+                    <span class="label-text" x-text="'容量: ' + renderSize(param.capacity)"></span>
+                </div>
+                <input type="number" class="input input-bordered w-full" x-model="param.capacity" />
+            </label>
+
+            <label class="form-control w-full max-w-xs">
+                <div class="label">
+                    <span class="label-text">文件排序字段</span>
+                </div>
+                <select class="select select-bordered w-full" x-model="param.order_field">
+                    <template x-for="ofd in order_fields" :key="ofd">
+                        <option :value="ofd" x-text="ofd" :selected="param.order_field==ofd"></option>
+                    </template>
+                </select>
+            </label>
+
+            <div class="form-control w-24">
+                <label class="label cursor-pointer">
+                    <span class="label-text">是否反序</span>
+                    <input type="checkbox" class="checkbox" :check="param.reverse" x-model="param.reverse" />
+                </label>
+            </div>
+            <div class="mt-5">
+                <button class="btn" @click="goback">返回</button>
+                <button class="btn btn-neutral text-white ml-2" @click="create" :disabled="loading">
+                    创建
+                    <template x-if="loading">
+                        <span class="loading loading-spinner"></span>
+                    </template>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block js %}
+<script>
+    document.addEventListener("alpine:init", () => {
+        Alpine.data("storageData", () => ({
+            param: {
+                mount_name: "",
+                root_path: "",
+                order: 0,
+                capacity: 0,
+                order_field: "",
+                reverse: false
+            },
+            loading: false,
+            order_fields: [],
+            can_create: true,
+            init() {
+                this.getOrderField();
+            },
+            getOrderField() {
+                storageOrderField().then(res => {
+                    this.order_fields = res.data.data;
+                    this.param.order_field = this.order_fields[0];
+                })
+            },
+            create() {
+                this.loading = true;
+                storageNew(
+                    this.param.mount_name,
+                    this.param.root_path,
+                    parseInt(this.param.order),
+                    parseInt(this.param.capacity),
+                    this.param.order_field,
+                    this.param.reverse
+                ).then(res => {
+                    this.loading = false;
+                    $vh.success(res.data.message);
+                    setTimeout(() => {
+                        window.location.replace("/m/storage");
+                    }, 2000)
+                }).catch(_ => this.loading = false)
+            },
+            goback() {
+                window.location.replace("/m/storage");
+            }
+        }))
+    })
+</script>
+{% endblock %}
