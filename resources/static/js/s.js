@@ -40,6 +40,8 @@ document.addEventListener("alpine:init", () => {
     is_download: false,
     downloaded: 0,
     downloadProgress: 0,
+    startTime: null,
+    downloadSpeed: 0,
     downloadMessage: "",
     openDLD() {
       document.getElementById("download").showModal();
@@ -152,6 +154,7 @@ document.addEventListener("alpine:init", () => {
               }
             } else {
               this.openDLD();
+              this.startTime = Date.now();
               const reader = response.body.getReader();
               this.downloadMessage = "下载中";
               let result = true;
@@ -163,7 +166,10 @@ document.addEventListener("alpine:init", () => {
                   break;
                 }
                 await writable.write(value);
+                let nowTime = Date.now()
+                let subTime = (nowTime - this.startTime) / 1000;
                 this.downloaded += value.length;
+                this.downloadSpeed = this.downloaded / subTime;
                 if (this.selected.size) {
                   this.downloadProgress = parseInt(
                     (this.downloaded / this.selected.size) * 100
@@ -179,6 +185,8 @@ document.addEventListener("alpine:init", () => {
           this.is_download = false;
           this.downloaded = 0;
           this.downloadProgress = 0;
+          this.startTime = null;
+          this.downloadSpeed = 0;
           this.closeDLD();
         }
       }

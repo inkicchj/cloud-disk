@@ -316,6 +316,7 @@
                                     </div>
                                     <div class="mt-2 text-xs">
                                         <span x-text="renderSize(f.size)"></span>
+                                        <span class="ml-1" x-text="`${renderSize(f.downloadSpeed)}/S`"></span>
                                         <span class="ml-1" x-text="`${f.progress}%`"></span>
                                         <span class="ml-1" x-text="f.dMessage"></span>
                                     </div>
@@ -482,6 +483,9 @@
             this.parent_dir = param.parent_dir;
             this.thumbnail = param.thumbnail;
 
+            this.startTime = null;
+            this.downloadSpeed = 0;
+
 
             this.saveHandle = null;
             this.downloaded = 0;
@@ -528,6 +532,7 @@
                         const reader = response.body.getReader();
                         let result = true;
                         this.dMessage = "下载中";
+                        if (this.startTime == null) this.startTime = Date.now();
                         while (result) {
                             const { done, value } = await reader.read();
                             if (done) {
@@ -538,7 +543,10 @@
                             if (cb != null) {
                                 await cb(value);
                             }
+                            let nowTime = Date.now();
+                            let subTime = (nowTime - this.startTime) / 1000;
                             this.downloaded += value.length;
+                            this.downloadSpeed = this.downloaded / subTime;
                             if (this.size) {
                                 this.progress = parseInt((this.downloaded / this.size) * 100);
                             }
