@@ -35,8 +35,6 @@ async def create(request: Request, body: NewStorageSchema, token) -> HTTPRespons
     if s:
         return json(Resp.err_msg(f"挂载名称已存在: {body.mount_name}"))
     root_path = Path(body.root_path).absolute()
-    if not root_path.is_dir():
-        return json(Resp.err_msg(f"系统文件夹不存在: {root_path}"))
 
     root_fs = OSVFS(str(root_path), create=True)
 

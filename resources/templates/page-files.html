@@ -600,7 +600,7 @@
         initLocal(file, path, mode, wipe) {
             this.ident = md5(`${file.name}_${file.size}_${file.type}_${file.lastModified}`);
             this.file = file;
-            this.path = (path + file.webkitRelativePath).replace(file.name, "");
+            this.path = path;
             this.web_path = file.webkitRelativePath ? '/' + file.webkitRelativePath : '/' + file.name;
             this.name = file.name;
             this.size = file.size;
