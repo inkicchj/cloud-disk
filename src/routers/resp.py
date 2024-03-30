@@ -117,9 +117,7 @@ async def file_stream(
             else:
                 while True:
                     content = await f.read(chunk_size)
-                    if len(content) < 1:
-                        break
-                    if content is None:
+                    if len(content) < 1 or content is None:
                         break
                     await response.write(content)
 
