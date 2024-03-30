@@ -1146,6 +1146,7 @@
             genA(file) {
                 let tagA = document.createElement("a");
                 tagA.href = "/api/fs/source?path=" + file.raw_path;
+                console.log(tagA.href)
                 tagA.style.display = "none";
                 tagA.setAttribute("download", file.name);
                 document.body.appendChild(tagA);
@@ -1158,7 +1159,6 @@
                 if (files.length == 1) {
                     let f = files[0];
                     let protocol = window.location.protocol;
-                    console.log(protocol)
                     if (protocol == "http:" || protocol == "http") {
                         this.genA(f);
                     }
