@@ -46,7 +46,8 @@
                             <template x-for="(f, idx) in dataList" :key="`${f.name}_${f.parent_dir}_${f.size}_${idx}`">
                                 <div class="p-2 border-b">
                                     <div>
-                                        <a class="text-sm text-black text-break font-bold link link-hover" x-text="f.name" @click="toPath(f)"></a>
+                                        <a class="text-sm text-black text-break font-bold link link-hover"
+                                            x-text="f.name" @click="toPath(f)"></a>
                                     </div>
                                     <div>
                                         <a class="text-xs link link-hover text-break" x-text="'来源: '+f.parent_dir"></a>
@@ -130,7 +131,8 @@
                                 <div class="join-item flex flex-col justify-center ml-3">
                                     <div class="flex items-center">
                                         <span class="text-sm">覆盖同名文件</span>
-                                        <input type="checkbox" class="toggle toggle-sm ml-1" :checked="wipe" x-model="wipe" />
+                                        <input type="checkbox" class="toggle toggle-sm ml-1" :checked="wipe"
+                                            x-model="wipe" />
                                     </div>
                                 </div>
 
@@ -171,7 +173,8 @@
                                             </div>
                                             <div>
                                                 <span class="text-xs" x-text="`${renderSize(t.size)}`"></span>
-                                                <span class="text-xs ml-1" x-text="`${renderSize(t.uploadSpeed)}/S`"></span>
+                                                <span class="text-xs ml-1"
+                                                    x-text="`${renderSize(t.uploadSpeed)}/S`"></span>
                                                 <span class="text-xs ml-1" x-text="`${t.process}%`"></span>
                                                 <span class="text-xs ml-1" x-text="t.status"></span>
                                                 <span class="text-xs ml-1 text-red-500" x-text="t.message"></span>
@@ -430,7 +433,8 @@
                                     <img :src="f.thumbnail?'/api/fs'+f.thumbnail:getSuffixIcon(f.name, f.is_dir)"
                                         @error="$event.target.src = getUnknowIcon()" />
                                     {% else %}
-                                    <img :src="getSuffixIcon(f.name, f.is_dir)" @error="$event.target.src = getUnknowIcon()"/>
+                                    <img :src="getSuffixIcon(f.name, f.is_dir)"
+                                        @error="$event.target.src = getUnknowIcon()" />
                                     {% endif %}
                                 </div>
                             </div>
@@ -925,7 +929,7 @@
                 let dir;
                 if (f.is_dir) {
                     dir = f.parent_dir + f.name;
-                    
+
                 } else {
                     dir = f.parent_dir;
                     if (dir.endsWith("/")) {
@@ -1139,45 +1143,60 @@
                 }
                 return handle
             },
+            genA(file) {
+                let tagA = document.createElement("a");
+                tagA.href = "/api/fs/source?path=" + file.raw_path;
+                tagA.style.display = "none";
+                tagA.setAttribute("download", file.name);
+                document.body.appendChild(tagA);
+                tagA.click();
+                document.body.removeChild(tagA);
+            },
+
             async download() {
                 let files = Alpine.store("datas").selectList;
                 if (files.length == 1) {
                     let f = files[0];
-                    if (f.is_dir) {
-                        const currentDir = await window.showDirectoryPicker({ mode: "readwrite" })
-
-                        let res = await fsFiles(f.raw_path)
-                        let data = res.data.data;
-                        for (let d of data) {
-                            let file = new FileEntry(d);
-                            let cDir = Alpine.store("datas").getPath();
-                            let pDir = file.parent_dir.slice(cDir.length, file.parent_dir.length - 1)
-                            const saveDir = await this.getEndDir(currentDir, pDir.split("/"));
-                            const saveFile = await saveDir.getFileHandle(d.name, { create: true });
-                            file.saveHandle = saveFile;
-                            this.downloadList.push(file);
-                            this.downloadQueue.push(file)
-                        }
-
-                    } else {
-
-                        const opts = {
-                            suggestedName: f.is_dir ? f.name + ".zip" : f.name
-                        };
-                        const handler = await window.showSaveFilePicker(opts)
-                        f.saveHandle = handler;
-                        this.downloadList.push(f);
-                        this.downloadQueue.push(f)
+                    let protocol = window.location.protocol;
+                    console.log(protocol)
+                    if (protocol == "http:" || protocol == "http") {
+                        this.genA(f);
                     }
-
-                    this.openDialog();
-                    if (this.downloadQueue.length) {
-                        if (!this.is_downloading) {
-                            this.streamDownload();
-                            this.is_downloading = true;
+                    if (protocol == "https:" || protocol == "https") {
+                        if (f.is_dir) {
+                            const currentDir = await window.showDirectoryPicker({ mode: "readwrite" })
+                            let res = await fsFiles(f.raw_path)
+                            let data = res.data.data;
+                            for (let d of data) {
+                                let file = new FileEntry(d);
+                                let cDir = Alpine.store("datas").getPath();
+                                let pDir = file.parent_dir.slice(cDir.length, file.parent_dir.length - 1)
+                                const saveDir = await this.getEndDir(currentDir, pDir.split("/"));
+                                const saveFile = await saveDir.getFileHandle(d.name, { create: true });
+                                file.saveHandle = saveFile;
+                                this.downloadList.push(file);
+                                this.downloadQueue.push(file)
+                            }
+                        } else {
+                            const opts = {
+                                suggestedName: f.is_dir ? f.name + ".zip" : f.name
+                            };
+                            const handler = await window.showSaveFilePicker(opts)
+                            f.saveHandle = handler;
+                            this.downloadList.push(f);
+                            this.downloadQueue.push(f)
+                        }
+                        this.openDialog();
+                        if (this.downloadQueue.length) {
+                            if (!this.is_downloading) {
+                                this.streamDownload();
+                                this.is_downloading = true;
+                            }
                         }
                     }
                     Alpine.store("datas").selectList = [];
+                } else {
+                    $vh.warning("只能选择一个文件/文件夹进行下载哦~");
                 }
             },
             streamDownload() {

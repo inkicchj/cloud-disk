@@ -1,3 +1,5 @@
+
+
 // 查看分享
 const shareView = (mark, path, password) => {
   return request.post("/share/view", {
@@ -9,13 +11,12 @@ const shareView = (mark, path, password) => {
 
 // 下载文件/文件夹
 const shareDownloadFetch = (mark, path, password) => {
-  return fetch("/api/share/source", {
-    method: "post",
-    body: JSON.stringify({
-      mark: mark,
-      path: path,
-      password: password,
-    }),
+  let uri = new URL("/api/share/source");
+  uri.searchParams.set("path", path);
+  uri.searchParams.set("mark", mark);
+  uri.searchParams.set("password", password);
+  return fetch(uri.href, {
+    method: "get",
     headers: {
       "Content-Type": "application/json",
     },
@@ -130,64 +131,87 @@ document.addEventListener("alpine:init", () => {
       localStorage.setItem(this.mark, this.password);
       this.getFiles();
     },
+    genA(path) {
+      let tagA = document.createElement("a");
+      let uri = new URL("/api/share/source");
+      uri.searchParams.set("mark", this.mark);
+      uri.searchParams.set("path", path);
+      uri.searchParams.set("password", this.password);
+      tagA.href = uri.href;
+      tagA.style.display = "none";
+      tagA.setAttribute("download", tagA.name);
+      document.body.appendChild(tagA);
+      tagA.click();
+      document.body.removeChild(tagA);
+  },
     async download() {
       if (this.is_download == false && !this.selected.is_dir) {
-        this.downloadMessage = "准备下载";
-        this.is_download = true;
+        let protocol = window.location.protocol;
         let p = this.getPath() + this.selected.name;
-        try {
-          const opts = {
-            suggestedName: this.selected.name,
-          };
-          const handler = await window.showSaveFilePicker(opts);
-          const writable = await handler.createWritable();
-
-          let response = await shareDownloadFetch(this.mark, p, this.password);
-          if (!response.ok) {
-            this.downloadMessage = "下载时出错";
-          } else {
-            let ctype = response.headers.get("content-type");
-            if (ctype == "application/json") {
-              let res = await response.json();
-              if (res.code == 410) {
-                this.downloadMessage = res.message;
-              }
+        if (protocol == "http:" || protocol == "http") {
+          this.genA(p);
+        }
+        if (protocol == "https:" || protocol == "https") {
+          this.downloadMessage = "准备下载";
+          this.is_download = true;
+          
+          try {
+            const opts = {
+              suggestedName: this.selected.name,
+            };
+            const handler = await window.showSaveFilePicker(opts);
+            const writable = await handler.createWritable();
+            let response = await shareDownloadFetch(
+              this.mark,
+              p,
+              this.password
+            );
+            if (!response.ok) {
+              this.downloadMessage = "下载时出错";
             } else {
-              this.openDLD();
-              this.startTime = Date.now();
-              const reader = response.body.getReader();
-              this.downloadMessage = "下载中";
-              let result = true;
-              while (result) {
-                const { done, value } = await reader.read();
-                if (done) {
-                  result = false;
-                  this.downloadMessage = "下载完成";
-                  break;
+              let ctype = response.headers.get("content-type");
+              if (ctype == "application/json") {
+                let res = await response.json();
+                if (res.code == 410) {
+                  this.downloadMessage = res.message;
                 }
-                await writable.write(value);
-                let nowTime = Date.now()
-                let subTime = (nowTime - this.startTime) / 1000;
-                this.downloaded += value.length;
-                this.downloadSpeed = this.downloaded / subTime;
-                if (this.selected.size) {
-                  this.downloadProgress = parseInt(
-                    (this.downloaded / this.selected.size) * 100
-                  );
+              } else {
+                this.openDLD();
+                this.startTime = Date.now();
+                const reader = response.body.getReader();
+                this.downloadMessage = "下载中";
+                let result = true;
+                while (result) {
+                  const { done, value } = await reader.read();
+                  if (done) {
+                    result = false;
+                    this.downloadMessage = "下载完成";
+                    break;
+                  }
+                  await writable.write(value);
+                  let nowTime = Date.now();
+                  let subTime = (nowTime - this.startTime) / 1000;
+                  this.downloaded += value.length;
+                  this.downloadSpeed = this.downloaded / subTime;
+                  if (this.selected.size) {
+                    this.downloadProgress = parseInt(
+                      (this.downloaded / this.selected.size) * 100
+                    );
+                  }
                 }
+                await writable.close();
               }
-              await writable.close();
             }
+          } catch (err) {
+            this.downloadMessage = "下载时出错";
+          } finally {
+            this.is_download = false;
+            this.downloaded = 0;
+            this.downloadProgress = 0;
+            this.startTime = null;
+            this.downloadSpeed = 0;
+            this.closeDLD();
           }
-        } catch (err) {
-          this.downloadMessage = "下载时出错";
-        } finally {
-          this.is_download = false;
-          this.downloaded = 0;
-          this.downloadProgress = 0;
-          this.startTime = null;
-          this.downloadSpeed = 0;
-          this.closeDLD();
         }
       }
     },

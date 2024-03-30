@@ -64,7 +64,7 @@ class PublicShareSchema:
 
 
 public_share_schema = Schema(Object({
-    Required("mark"): All(str, Length(max=30)),
+    Required("mark"): All(Length(max=30)),
     Required("path", default="/"): All(parse, path_rule, regular_view_path),
-    Required("password", default=""): All(str, Length(max=4))
+    Required("password", default=""): All(Coerce(str), Length(max=4))
 }, cls=PublicShareSchema))

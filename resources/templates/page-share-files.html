@@ -26,12 +26,12 @@
 <body>
 
     <div>
-        <div class="grid grid-cols-8 relative" x-data="shareData">
+        <div class="grid md:grid-cols-8 relative" x-data="shareData">
             <div class="absolute top-0 left-0 w-full h-full" style="z-index: -1;">
                 <img class="w-full h-full object-cover" src="/static/img/bg.jpg">
             </div>
 
-            <div class="col-span-4 col-start-3 p-3">
+            <div class="lg:col-span-4 md:col-span-6 lg:col-start-3 md:col-start-2 p-3">
                 <!-- 不可预览 -->
                 <dialog id="modal-1" class="modal">
                     <div class="modal-box">
@@ -150,10 +150,11 @@
                                                     <div class="avatar ml-2">
                                                         <div class="w-8 rounded">
                                                             {% if request.ctx.config.preview.thumbnail %}
-                                                            <img
-                                                                :src="f.thumbnail?'/api/fs'+f.thumbnail:getSuffixIcon(f.name, f.is_dir)" @error="$event.target.src = getUnknowIcon()"/>
+                                                            <img :src="f.thumbnail?'/api/fs'+f.thumbnail:getSuffixIcon(f.name, f.is_dir)"
+                                                                @error="$event.target.src = getUnknowIcon()" />
                                                             {% else %}
-                                                            <img :src="getSuffixIcon(f.name, f.is_dir)" @error="$event.target.src = getUnknowIcon()"/>
+                                                            <img :src="getSuffixIcon(f.name, f.is_dir)"
+                                                                @error="$event.target.src = getUnknowIcon()" />
                                                             {% endif %}
                                                         </div>
                                                     </div>
@@ -188,8 +189,8 @@
                     <div class="absolute left-0 top-0 w-full h-full" style="z-index: -1;">
                         <img class="w-full h-full object-cover" src="/static/img/bg.jpg">
                     </div>
-                    
-                    <div class="card w-1/3 border bg-base-100">
+
+                    <div class="card lg:w-1/3 md:w-1/2 sm:w-full border bg-base-100">
                         <div class="card-body">
                             <h2 class="card-title">{{ request.ctx.config.website.name }}分享的文件</h2>
                             <input class="input input-bordered join-item w-full" placeholder="输入访问码" x-model="password"
@@ -210,6 +211,222 @@
     <script src="/static/js/request.js"></script>
     <script src="/static/js/moment.js"></script>
     <script src="/static/js/url.min.js"></script>
-    <script src="/static/js/s.js"></script>
+    <script>
+        const LINK = "/api/share/source";
+
+        // 查看分享
+        const shareView = (mark, path, password) => {
+            return request.post("/share/view", {
+                mark: mark,
+                path: path,
+                password: password,
+            });
+        };
+
+        // 下载文件/文件夹
+        const shareDownloadFetch = (mark, path, password) => {
+            let u = LINK + "?mark=" + mark + "&path=" + path + "&password=" + password;
+            return fetch(u, {
+                method: "get",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+        };
+
+        function parseTime(t) {
+            return moment.unix(t).format("YYYY-MM-DD HH:mm:SS");
+        }
+
+        document.addEventListener("alpine:init", () => {
+            Alpine.data("shareData", () => ({
+                dirName: null,
+                url: window.location.href,
+                mark: "",
+                password: "",
+                fileList: [],
+                selected: null,
+                pathList: [""],
+                loading: false,
+                status: 0,
+                is_download: false,
+                downloaded: 0,
+                downloadProgress: 0,
+                startTime: null,
+                downloadSpeed: 0,
+                downloadMessage: "",
+                openDLD() {
+                    document.getElementById("download").showModal();
+                },
+                closeDLD() {
+                    document.getElementById("download").close();
+                },
+                storePathList() {
+                    sessionStorage.setItem("shareList", JSON.stringify(this.pathList));
+                },
+                init() {
+                    this.mark = url("-1", this.url);
+                    let p = sessionStorage.getItem("shareList");
+                    if (p) {
+                        this.pathList = JSON.parse(p);
+                    } else {
+                        this.storePathList();
+                    }
+
+                    let pwd = localStorage.getItem(this.mark);
+                    if (pwd) this.password = pwd;
+
+                    this.getFiles();
+                },
+                getPath() {
+                    let p = this.pathList.join("/");
+                    if (p) {
+                        return p + "/";
+                    } else {
+                        return "/";
+                    }
+                },
+                getFiles() {
+                    this.loading = true;
+                    let pl = this.dirName ? this.getPath() + this.dirName : this.getPath();
+                    shareView(this.mark, pl, this.password)
+                        .then((res) => {
+                            this.status = 0;
+                            this.fileList = res.data.data;
+                            this.loading = false;
+                            if (this.dirName) this.pathList.push(this.dirName);
+                            this.dirName = null;
+                            this.storePathList();
+                        })
+                        .catch((err) => {
+                            this.loading = false;
+                            switch (err.data.code) {
+                                case 51100:
+                                    this.status = 1;
+                                    break;
+                                case 51101:
+                                    this.status = 2;
+                                    break;
+                                case 51102:
+                                    this.status = 3;
+                                    break;
+                            }
+                        });
+                },
+                toPath(f) {
+                    this.selected = null;
+                    if (f.is_dir) {
+                        if (f.name) {
+                            this.dirName = f.name;
+                            if (this.pathList.includes(this.dirName)) {
+                                let index = this.pathList.indexOf(this.dirName);
+                                this.pathList.splice(index, this.pathList.length - index);
+                            }
+                        } else {
+                            this.pathList = [""];
+                        }
+
+                        this.getFiles();
+                    } else {
+                        document.getElementById("modal-1").showModal();
+                    }
+                },
+                selectFile(f) {
+                    if (this.selected == f) {
+                        this.selected = null;
+                    } else {
+                        this.selected = f;
+                    }
+                },
+                setPassword() {
+                    localStorage.setItem(this.mark, this.password);
+                    this.getFiles();
+                },
+                genA(path) {
+                    let tagA = document.createElement("a");
+                    let u = LINK + "?mark=" + this.mark + "&path=" + path + "&password=" + this.password;
+                    console.log(u)
+                    tagA.href = u;
+                    tagA.style.display = "none";
+                    tagA.setAttribute("download", this.selected.name);
+                    document.body.appendChild(tagA);
+                    tagA.click();
+                    document.body.removeChild(tagA);
+                },
+                async download() {
+                    if (this.is_download == false && !this.selected.is_dir) {
+                        let protocol = window.location.protocol;
+                        let p = this.getPath() + this.selected.name;
+                        if (protocol == "http:" || protocol == "http") {
+                            this.genA(p);
+                        }
+                        if (protocol == "https:" || protocol == "https") {
+                            this.downloadMessage = "准备下载";
+                            this.is_download = true;
+
+                            try {
+                                const opts = {
+                                    suggestedName: this.selected.name,
+                                };
+                                const handler = await window.showSaveFilePicker(opts);
+                                const writable = await handler.createWritable();
+                                let response = await shareDownloadFetch(
+                                    this.mark,
+                                    p,
+                                    this.password
+                                );
+                                if (!response.ok) {
+                                    this.downloadMessage = "下载时出错";
+                                } else {
+                                    let ctype = response.headers.get("content-type");
+                                    if (ctype == "application/json") {
+                                        let res = await response.json();
+                                        if (res.code == 410) {
+                                            this.downloadMessage = res.message;
+                                        }
+                                    } else {
+                                        this.openDLD();
+                                        this.startTime = Date.now();
+                                        const reader = response.body.getReader();
+                                        this.downloadMessage = "下载中";
+                                        let result = true;
+                                        while (result) {
+                                            const { done, value } = await reader.read();
+                                            if (done) {
+                                                result = false;
+                                                this.downloadMessage = "下载完成";
+                                                break;
+                                            }
+                                            await writable.write(value);
+                                            let nowTime = Date.now();
+                                            let subTime = (nowTime - this.startTime) / 1000;
+                                            this.downloaded += value.length;
+                                            this.downloadSpeed = this.downloaded / subTime;
+                                            if (this.selected.size) {
+                                                this.downloadProgress = parseInt(
+                                                    (this.downloaded / this.selected.size) * 100
+                                                );
+                                            }
+                                        }
+                                        await writable.close();
+                                    }
+                                }
+                            } catch (err) {
+                                this.downloadMessage = "下载时出错";
+                            } finally {
+                                this.is_download = false;
+                                this.downloaded = 0;
+                                this.downloadProgress = 0;
+                                this.startTime = null;
+                                this.downloadSpeed = 0;
+                                this.closeDLD();
+                            }
+                        }
+                    }
+                },
+            }));
+        });
+
+    </script>
 </body>
 </head>

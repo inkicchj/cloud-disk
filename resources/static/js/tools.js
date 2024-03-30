@@ -58,3 +58,15 @@ function getSuffixIcon(name, is_dir) {
 function getUnknowIcon() {
   return '/static/img/suffix/unknow.png'
 }
+
+
+function genA(file) {
+  let tagA = document.createElement("a");
+  console.log(file)
+  tagA.href = file.raw_path;
+  tagA.style.display = "none";
+  tagA.setAttribute("download", tagA.name);
+  document.body.appendChild(tagA);
+  tagA.click();
+  document.body.removeChild(tagA);
+} 

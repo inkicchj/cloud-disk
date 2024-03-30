@@ -21,6 +21,8 @@ if not os.path.exists("data"):
     os.mkdir("data")
 if not os.path.exists("data/thumbnail"):
     os.mkdir("data/thumbnail")
+if not os.path.exists("temp"):
+    os.mkdir("temp")
 
 # 初始化配置项
 AppConfig.init("data/conf.db")

@@ -189,18 +189,18 @@ async def view_share(request: Request, body: PublicShareSchema):
         return json(Resp.ok_data([v.model_dump()]))
 
 
-@share_b.post("/source")
-@validate(json=(public_share_schema, PublicShareSchema))
-async def share_download(request: Request, body: PublicShareSchema):
-    share = await Share.get_or_none(mark=body.mark)
+@share_b.get("/source")
+@validate(query=(public_share_schema, PublicShareSchema))
+async def share_download(request: Request, query: PublicShareSchema):
+    share = await Share.get_or_none(mark=query.mark[0])
     if not share:
         return json(Resp.err(51100, None, "分享已取消"))
     if share.expired < datetime.now().timestamp() and share.expired != Expired.Forever.value:
         return json(Resp.err(51101, None, "分享已过期"))
-    if share.password and share.password != body.password:
+    if share.password and share.password != query.password:
         return json(Resp.err(51102, None, "访问码错误"))
     if share.is_dir:
-        share_path = share.path + body.path
+        share_path = share.path + query.path
         share_path = share_path if not str(share_path).endswith("/") else share_path[:-1]
     else:
         share_path = share.path

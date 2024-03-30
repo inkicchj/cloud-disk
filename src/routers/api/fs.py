@@ -341,10 +341,10 @@ async def download(request: Request, query: PathSchema, token):
                     zip_path,
                     "w"
             ) as zp:
-                path_ = str(query.path[0:-1]).split("/")[-1]
+                path_ = str(query.path[0:-1]).split("/")[0:-1]
                 for f in VFS.walk.files(query.path):
-                    name = VFS.getsyspath(f)
-                    zp.write(filename=name, arcname=f.replace(path_, ""))
+                    root_p = VFS.getsyspath(f)
+                    zp.write(filename=root_p, arcname=f.replace(path_, ""))
             zp.close()
         src_path = zip_path
     else:
