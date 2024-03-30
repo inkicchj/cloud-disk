@@ -40,13 +40,13 @@ def operate_path(path: str) -> str:
 path_rule = All(
     str,
     Strip,
-    Length(max=100, msg="路径最大长度为100"),
+    Length(max=1000, msg="路径最大长度为1000"),
     Match(r"^/([\w\.]+\/?)*", msg=r"路径格式不匹配: '^/([\w\.]+\/?)*'"),
 )
 
 name_rule = All(
     str,
     Strip,
-    Length(max=100, msg="名称最长为100字符"),
+    Length(max=500, msg="名称最长为500字符"),
     validate_name
 )
