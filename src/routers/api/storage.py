@@ -105,7 +105,7 @@ async def update(request: Request, body: UpdateStorageSchema, token) -> HTTPResp
         reverse=body.reverse
     )
 
-    if storage_.activated and body.mount_name != storage_.mount_name:
+    if storage_.activated:
         mount_path = forcedir(abspath(normpath(storage_.mount_name)))
         VFS.unmount(mount_path)
         VFS.mount(body.mount_name, root_fs)
