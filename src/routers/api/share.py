@@ -14,7 +14,7 @@ from src.model.share import Share, Expired
 from src.model.storage import Storage
 from src.model.user import Role
 from src.routers.api.fs import FInfo
-from src.routers.resp import Resp
+from src.routers.resp import Resp, file_stream as my_file_stream
 from src.schemas.share import list_share_schema, ListShareSchema
 from src.schemas.share import new_share_schema, NewShareSchema
 from src.schemas.share import public_share_schema, PublicShareSchema
@@ -226,4 +226,4 @@ async def share_download(request: Request, query: PublicShareSchema):
         stat = await stat_async(share_path)
         _range = ContentRangeHandler(request, stat)
         meta["_range"] = _range
-    return await response.file_stream(**meta)
+    return await my_file_stream(**meta)
